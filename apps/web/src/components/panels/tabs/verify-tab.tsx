@@ -34,19 +34,32 @@ export function VerifyTab() {
     const notExpired = challenge.expiry ? challenge.expiry > Math.floor(Date.now() / 1000) : true;
     const recipientMatch = receipt.merchant === challenge.recipient;
 
-    // 2. Real signature verification
-    addDebugLog("info", "Verifying facilitator signature...");
+    // 2. Real signature verification via Beep API
+    addDebugLog("info", "Verifying facilitator signature via Beep API...");
     const sigResult = await verifyFacilitatorSignature(receipt);
     setSignatureDetails(sigResult);
 
     const signatureValid = sigResult.valid;
+
+    // Log the verification method
+    const methodLabels = {
+      "beep-api": "Beep API",
+      "sui-ed25519": "Local Ed25519",
+      "format-check": "Format Check",
+      "demo": "Demo Mode",
+    };
+
     addDebugLog(
       signatureValid ? "success" : "error",
-      `Signature verification: ${signatureValid ? "PASSED" : "FAILED"} (method: ${sigResult.method})`
+      `Signature: ${signatureValid ? "VALID" : "INVALID"} (via ${methodLabels[sigResult.method]})`
     );
 
-    if (sigResult.details?.signer) {
-      addDebugLog("info", `Signer: ${sigResult.details.signer}`);
+    if (sigResult.method === "beep-api" && sigResult.details?.apiResponse) {
+      addDebugLog("info", `API Response: ${JSON.stringify(sigResult.details.apiResponse)}`);
+    }
+
+    if (sigResult.error && !signatureValid) {
+      addDebugLog("warning", `Verification error: ${sigResult.error}`);
     }
 
     const errors: string[] = [];

@@ -7,9 +7,17 @@ import { useFlowStore, PRESET_SCENARIOS, type PresetScenario } from "@/stores/fl
 import { cn } from "@/lib/utils";
 import { CenterPanel } from "../panels/center-panel";
 import { CodeExportPanel } from "../panels/code-export-panel";
-import { useBeepPayment, type BeepPaymentReceipt } from "@/components/beep/beep-checkout";
+import { BeepCheckout, useBeepPayment, type BeepPaymentReceipt } from "@/components/beep/beep-checkout";
+
+type DemoSubMode = "learning" | "beep";
 
 const PRESETS = Object.entries(PRESET_SCENARIOS).filter(([key]) => key !== "custom") as [PresetScenario, typeof PRESET_SCENARIOS[PresetScenario]][];
+
+// Default payment config for Beep Live mode
+const BEEP_LIVE_CONFIG = {
+  amount: "0.000001", // Smallest USDC amount (1 micro-USDC)
+  currency: "USDC",
+};
 
 export function DemoMode() {
   const {
@@ -25,8 +33,10 @@ export function DemoMode() {
 
   const [isCodeExpanded, setIsCodeExpanded] = useState(false);
   const [isWalletPaymentLoading, setIsWalletPaymentLoading] = useState(false);
+  const [demoSubMode, setDemoSubMode] = useState<DemoSubMode>("learning");
+  const [showBeepModal, setShowBeepModal] = useState(false);
 
-  // Beep payment hook
+  // Beep payment hook (for demo simulation)
   const { initiatePayment, isProcessing: isBeepPaymentLoading, error: beepError } = useBeepPayment();
 
   // Wallet hooks
@@ -133,6 +143,64 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
     setIsWalletPaymentLoading(false);
   };
 
+  // Handler for Beep Live mode - opens real Beep Checkout widget
+  const handleBeepLivePayment = () => {
+    if (!account) {
+      addDebugLog("warning", "Please connect your wallet first");
+      return;
+    }
+
+    addDebugLog("info", "🚀 Opening Beep Checkout Widget...");
+    addDebugLog("info", `Amount: ${BEEP_LIVE_CONFIG.amount} ${BEEP_LIVE_CONFIG.currency}`);
+    addDebugLog("info", `Recipient: ${account.address.slice(0, 20)}...`);
+    setShowBeepModal(true);
+  };
+
+  // Handler for when real Beep payment completes
+  const handleRealBeepPaymentComplete = (beepReceipt: BeepPaymentReceipt) => {
+    const network = process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "sui-mainnet" : "sui-testnet";
+    const nonce = `beep-live-${Date.now()}`;
+
+    addDebugLog("success", "✅ Real Beep payment completed!");
+    addDebugLog("info", `Receipt ID: ${beepReceipt.id}`);
+    addDebugLog("info", `Transaction: ${beepReceipt.txHash}`);
+
+    // Create challenge and receipt for the panels
+    const generatedChallenge = {
+      amount: beepReceipt.amount,
+      asset: beepReceipt.asset,
+      recipient: beepReceipt.merchant,
+      chain: network,
+      nonce: nonce,
+      expiry: Math.floor(Date.now() / 1000) + 3600,
+    };
+    setChallenge(generatedChallenge, JSON.stringify(generatedChallenge, null, 2));
+
+    const receipt = {
+      id: beepReceipt.id,
+      requestNonce: nonce,
+      payer: beepReceipt.payer,
+      merchant: beepReceipt.merchant,
+      amount: beepReceipt.amount,
+      asset: beepReceipt.asset,
+      chain: network,
+      txHash: beepReceipt.txHash,
+      signature: beepReceipt.signature,
+      issuedAt: beepReceipt.issuedAt,
+    };
+    setReceipt(receipt, JSON.stringify(receipt, null, 2));
+
+    setShowBeepModal(false);
+    addDebugLog("success", "Receipt stored! Check the Verify tab.");
+  };
+
+  // Handler when Beep payment fails
+  const handleRealBeepPaymentError = (error: Error) => {
+    addDebugLog("error", `Beep payment failed: ${error.message}`);
+    setShowBeepModal(false);
+  };
+
+
   const handleBeepPayment = async () => {
     if (!challenge) return;
     if (!account) {
@@ -200,150 +268,204 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
               Demo Mode
             </h2>
             <p className="text-xs text-muted-foreground mt-1">
-              Learn the a402 flow with preset scenarios
+              {demoSubMode === "learning"
+                ? "Learn the a402 flow with simulated data"
+                : "Real USDC payments via Beep"}
             </p>
           </div>
 
-          {/* Preset List */}
-          <div className="space-y-2">
-            <label className="text-xs font-medium text-muted-foreground">
-              Select Scenario
-            </label>
-            {PRESETS.map(([id, preset]) => (
-              <button
-                key={id}
-                onClick={() => handleLoadPreset(id)}
-                className={cn(
-                  "w-full text-left p-3 rounded-lg border transition-all",
-                  selectedPreset === id
-                    ? "border-neon-pink bg-neon-pink/10"
-                    : "border-border hover:border-muted-foreground"
-                )}
-              >
-                <div className="flex items-center justify-between">
-                  <span className="text-sm font-medium text-white">
-                    {preset.name}
-                  </span>
-                  <span
-                    className={cn(
-                      "text-xs px-2 py-0.5 rounded",
-                      preset.expectedResult === "valid"
-                        ? "bg-neon-green/20 text-neon-green"
-                        : "bg-red-500/20 text-red-400"
-                    )}
-                  >
-                    {preset.expectedResult}
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground mt-1">
-                  {preset.description}
-                </p>
-              </button>
-            ))}
+          {/* Sub-Mode Toggle */}
+          <div className="flex rounded-lg border border-border overflow-hidden">
+            <button
+              onClick={() => setDemoSubMode("learning")}
+              className={cn(
+                "flex-1 px-3 py-2 text-xs font-medium transition-all",
+                demoSubMode === "learning"
+                  ? "bg-neon-green/20 text-neon-green border-r border-neon-green/30"
+                  : "bg-card text-muted-foreground hover:bg-muted border-r border-border"
+              )}
+            >
+              📚 Learning
+            </button>
+            <button
+              onClick={() => setDemoSubMode("beep")}
+              className={cn(
+                "flex-1 px-3 py-2 text-xs font-medium transition-all",
+                demoSubMode === "beep"
+                  ? "bg-purple-500/20 text-purple-400"
+                  : "bg-card text-muted-foreground hover:bg-muted"
+              )}
+            >
+              ⚡ Beep Live
+            </button>
           </div>
+
+          {/* Mode Info Banner */}
+          {demoSubMode === "learning" ? (
+            <div className="p-3 rounded-lg bg-neon-green/5 border border-neon-green/20">
+              <div className="flex items-start gap-2">
+                <span className="text-neon-green">ℹ️</span>
+                <div className="text-xs text-muted-foreground">
+                  <p className="font-medium text-neon-green mb-1">Simulation Mode</p>
+                  <p>All data is mock. Full verification with demo keys. Free to use.</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20">
+              <div className="flex items-start gap-2">
+                <span className="text-purple-400">⚡</span>
+                <div className="text-xs text-muted-foreground">
+                  <p className="font-medium text-purple-400 mb-1">Real Beep Payments</p>
+                  <p>Pay real USDC using Beep Checkout Widget. Scan QR with mobile wallet.</p>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Preset List - Only show in Learning mode */}
+          {demoSubMode === "learning" && (
+            <div className="space-y-2">
+              <label className="text-xs font-medium text-muted-foreground">
+                Select Scenario
+              </label>
+              {PRESETS.map(([id, preset]) => (
+                <button
+                  key={id}
+                  onClick={() => handleLoadPreset(id)}
+                  className={cn(
+                    "w-full text-left p-3 rounded-lg border transition-all",
+                    selectedPreset === id
+                      ? "border-neon-pink bg-neon-pink/10"
+                      : "border-border hover:border-muted-foreground"
+                  )}
+                >
+                  <div className="flex items-center justify-between">
+                    <span className="text-sm font-medium text-white">
+                      {preset.name}
+                    </span>
+                    <span
+                      className={cn(
+                        "text-xs px-2 py-0.5 rounded",
+                        preset.expectedResult === "valid"
+                          ? "bg-neon-green/20 text-neon-green"
+                          : "bg-red-500/20 text-red-400"
+                      )}
+                    >
+                      {preset.expectedResult}
+                    </span>
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-1">
+                    {preset.description}
+                  </p>
+                </button>
+              ))}
+            </div>
+          )}
 
           {/* Action Buttons */}
           <div className="space-y-2 pt-4 border-t border-border">
-            <button
-              onClick={() => handleLoadPreset(selectedPreset)}
-              disabled={isLoading}
-              className="w-full px-4 py-2.5 bg-neon-pink text-black font-semibold rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isLoading ? "Loading..." : "Load Challenge"}
-            </button>
-
-            {challenge && (
+            {demoSubMode === "learning" ? (
               <>
+                {/* Learning Mode Buttons */}
                 <button
-                  onClick={handleSimulatePayment}
+                  onClick={() => handleLoadPreset(selectedPreset)}
                   disabled={isLoading}
-                  className="w-full px-4 py-2.5 bg-neon-green text-black font-semibold rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="w-full px-4 py-2.5 bg-neon-pink text-black font-semibold rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {isLoading ? "Processing..." : "Simulate Payment"}
+                  {isLoading ? "Loading..." : "Load Challenge"}
                 </button>
 
-                {/* Pay with Wallet Button */}
-                <button
-                  onClick={handleWalletPayment}
-                  disabled={!account || isWalletPaymentLoading || isLoading}
-                  className={cn(
-                    "w-full px-4 py-2.5 font-semibold rounded-md transition-all disabled:cursor-not-allowed",
-                    account
-                      ? "bg-neon-cyan text-black hover:opacity-90 disabled:opacity-50"
-                      : "bg-card border border-neon-cyan/50 text-neon-cyan hover:bg-neon-cyan/10"
-                  )}
-                >
-                  {isWalletPaymentLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Signing...
-                    </span>
-                  ) : account ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
-                      </svg>
-                      Pay with Wallet
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                      </svg>
-                      Connect Wallet First
-                    </span>
-                  )}
-                </button>
+                {challenge && (
+                  <>
+                    <button
+                      onClick={handleSimulatePayment}
+                      disabled={isLoading}
+                      className="w-full px-4 py-2.5 bg-neon-green text-black font-semibold rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {isLoading ? "Processing..." : "Simulate Payment"}
+                    </button>
 
-                {/* Pay with Beep Button */}
-                <button
-                  onClick={handleBeepPayment}
-                  disabled={!account || isBeepPaymentLoading || isLoading}
-                  className={cn(
-                    "w-full px-4 py-2.5 font-semibold rounded-md transition-all disabled:cursor-not-allowed",
-                    account
-                      ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90 disabled:opacity-50"
-                      : "bg-card border border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
-                  )}
-                >
-                  {isBeepPaymentLoading ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                      </svg>
-                      Processing Beep...
-                    </span>
-                  ) : account ? (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <button
+                      onClick={handleWalletPayment}
+                      disabled={!account || isWalletPaymentLoading || isLoading}
+                      className={cn(
+                        "w-full px-4 py-2.5 font-semibold rounded-md transition-all disabled:cursor-not-allowed",
+                        account
+                          ? "bg-neon-cyan text-black hover:opacity-90 disabled:opacity-50"
+                          : "bg-card border border-neon-cyan/50 text-neon-cyan hover:bg-neon-cyan/10"
+                      )}
+                    >
+                      {isWalletPaymentLoading ? "Signing..." : account ? "Pay with Wallet" : "Connect Wallet"}
+                    </button>
+
+                    <button
+                      onClick={handleBeepPayment}
+                      disabled={!account || isBeepPaymentLoading || isLoading}
+                      className={cn(
+                        "w-full px-4 py-2.5 font-semibold rounded-md transition-all disabled:cursor-not-allowed",
+                        account
+                          ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90 disabled:opacity-50"
+                          : "bg-card border border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                      )}
+                    >
+                      {isBeepPaymentLoading ? "Processing..." : account ? "Pay with Beep" : "Connect for Beep"}
+                    </button>
+                  </>
+                )}
+              </>
+            ) : (
+              <>
+                {/* Beep Live Mode - Streamlined */}
+                <div className="space-y-3">
+                  <div className="text-center py-6">
+                    <div className="w-16 h-16 mx-auto bg-gradient-to-br from-purple-500/20 to-pink-500/20 rounded-2xl flex items-center justify-center mb-3">
+                      <svg className="w-8 h-8 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                       </svg>
-                      Pay with Beep
-                    </span>
+                    </div>
+                    <h3 className="text-lg font-semibold text-white">Beep Checkout</h3>
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Real USDC payments on Sui testnet
+                    </p>
+                  </div>
+
+                  {!account ? (
+                    <div className="p-4 rounded-lg bg-purple-500/10 border border-purple-500/20 text-center">
+                      <p className="text-sm text-purple-400">
+                        Connect your wallet to make real payments
+                      </p>
+                    </div>
                   ) : (
-                    <span className="flex items-center justify-center gap-2">
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      Connect Wallet for Beep
-                    </span>
+                    <>
+                      <button
+                        onClick={handleBeepLivePayment}
+                        disabled={showBeepModal}
+                        className="w-full px-4 py-3 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                      >
+                        {showBeepModal ? "Checkout Open..." : `Pay ${BEEP_LIVE_CONFIG.amount} USDC`}
+                      </button>
+                      <p className="text-xs text-muted-foreground text-center">
+                        Opens Beep Checkout Widget. Scan QR with your mobile wallet.
+                      </p>
+                    </>
                   )}
-                </button>
+                </div>
               </>
             )}
           </div>
 
-          {/* Info */}
+          {/* Mode-specific tips */}
           <div className="text-xs text-muted-foreground bg-card/50 p-3 rounded-lg">
-            <p>
-              <span className="text-neon-yellow font-medium">Tip:</span> Use
-              "Simulate Payment" for mock testing, "Pay with Wallet" for signing,
-              or "Pay with Beep" for the full a402 MCP flow.
-            </p>
+            {demoSubMode === "learning" ? (
+              <p>
+                <span className="text-neon-yellow font-medium">💡 Tip:</span> Start by loading a preset, then try different payment methods.
+              </p>
+            ) : (
+              <p>
+                <span className="text-purple-400 font-medium">⚠️ Note:</span> Receipts are pre-verified by Beep. Independent verification requires facilitator keys.
+              </p>
+            )}
           </div>
         </div>
       </div>
@@ -401,6 +523,51 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
           <CodeExportPanel isExpanded={isCodeExpanded} />
         </div>
       </div>
+
+      {/* Real Beep Checkout Modal */}
+      {showBeepModal && account && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm">
+          <div className="relative bg-card rounded-2xl border border-border shadow-2xl max-w-md w-full mx-4 overflow-hidden">
+            {/* Modal Header */}
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div>
+                <h3 className="text-lg font-semibold text-white">Beep Checkout</h3>
+                <p className="text-xs text-muted-foreground">Pay with USDC on Sui</p>
+              </div>
+              <button
+                onClick={() => setShowBeepModal(false)}
+                className="p-2 rounded-lg hover:bg-muted transition-colors"
+              >
+                <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+
+            {/* Beep Checkout Widget */}
+            <div className="p-4">
+              <BeepCheckout
+                amount={BEEP_LIVE_CONFIG.amount}
+                currency={BEEP_LIVE_CONFIG.currency}
+                recipient={account.address}
+                description="a402 Playground - Test Payment"
+                onPaymentComplete={handleRealBeepPaymentComplete}
+                onPaymentError={handleRealBeepPaymentError}
+                showModal={false}
+              />
+            </div>
+
+            {/* Payment Info */}
+            <div className="px-4 pb-4">
+              <div className="p-3 rounded-lg bg-purple-500/10 border border-purple-500/20 text-center">
+                <p className="text-xs text-purple-400">
+                  Scan the QR code with your mobile wallet to complete the payment.
+                </p>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

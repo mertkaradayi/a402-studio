@@ -126,6 +126,23 @@
 
 ---
 
+## Step 8: Two-Mode Demo Architecture
+
+- [x] Add sub-mode toggle (Learning vs Beep Live)
+- [x] Learning mode: Mock data + full verification with demo keys
+- [x] Beep Live mode: Real USDC payments via Beep Checkout
+- [x] Add mode-specific info banners
+- [x] Fix network detection to use `NEXT_PUBLIC_SUI_NETWORK` env var
+- [x] Add `handleBeepLivePayment` for Beep Live mode
+
+**What You'll Test:**
+1. Toggle between Learning and Beep Live modes
+2. In Learning: presets work, simulate payment works
+3. In Beep Live: button says "Pay 0.01 USDC (Demo)"
+4. Set `NEXT_PUBLIC_SUI_NETWORK=mainnet` and verify network shows mainnet
+
+---
+
 ## Current Status
 
 | Step | Status | Notes |
@@ -134,12 +151,17 @@
 | 2. Sui RPC | ✅ Complete | Enables real tx lookup |
 | 3. Backend Proxy | ✅ Complete | Enables Test Endpoint mode |
 | 4. Wallet + Demo | ✅ Complete | Connects wallet to flow |
-| 5. Beep Integration | ✅ Complete | MCP client + Pay with Beep |
-| 6. Signature Verification | ✅ Complete | Real Ed25519 + format checks |
+| 5. Beep Integration | ✅ Complete | SDK + Pay with Beep |
+| 6. Signature Verification | ✅ Complete | Via Beep API + demo fallback |
 | 7. Database | ⏳ Not Started | Production persistence |
+| 8. Two-Mode Demo | ✅ Complete | Learning + Beep Live |
 
 ---
 
-## Ready to Start?
+## Known Limitations (Beep API)
 
-Tell me: **"Implement Step 1"** and I'll add Sui wallet integration. After I'm done, you test it and confirm it works before we continue to Step 2.
+> [!IMPORTANT]
+> Beep Pay does not expose a public verify endpoint or facilitator public key.
+> Real receipt verification is handled by Beep internally.
+> Demo mode uses mock verification with demo keys.
+

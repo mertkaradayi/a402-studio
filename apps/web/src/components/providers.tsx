@@ -16,14 +16,18 @@ const { networkConfig } = createNetworkConfig({
     mainnet: { url: getFullnodeUrl("mainnet") },
 });
 
+// Get default network from environment variable
+const defaultNetwork = (process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "mainnet" : "testnet") as "testnet" | "mainnet";
+
 export function Providers({ children }: { children: ReactNode }) {
     const [queryClient] = useState(() => new QueryClient());
 
     return (
         <QueryClientProvider client={queryClient}>
-            <SuiClientProvider networks={networkConfig} defaultNetwork="testnet">
+            <SuiClientProvider networks={networkConfig} defaultNetwork={defaultNetwork}>
                 <WalletProvider autoConnect>{children}</WalletProvider>
             </SuiClientProvider>
         </QueryClientProvider>
     );
 }
+
