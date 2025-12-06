@@ -1,0 +1,295 @@
+Project: a402 Playground & Inspector for Beep/Sui
+
+This document explains a hackathon project called “a402 Playground & Inspector”, built on top of Beep and the a402 payment protocol on Sui.
+You (the LLM) should use this as the single source of truth when answering questions or generating code related to this project.
+
+⸻
+
+1. High-level purpose
+
+Goal:
+Make it easy for developers to simulate, inspect, and debug a402 + Beep payment flows end-to-end in a single UI.
+
+Today, Beep’s documentation mostly uses curl examples and low-level API calls. Developers who want to integrate a402 into their Sui apps, APIs, or agents have to piece together:
+	•	HTTP 402 responses
+	•	Payment / checkout steps via Beep
+	•	a402 receipts (headers / JSON payloads)
+	•	On-chain transactions on Sui
+
+This project provides a web-based playground that acts like:
+	•	Postman (for crafting requests),
+	•	a402-aware inspector (for decoding receipts & verifying them),
+	•	and a lightweight block explorer view (for Sui settlement).
+
+The playground is focused on developer experience, not on production-level custody or live funds management.
+
+⸻
+
+2. Core user persona
+
+Assume the primary user is:
+	•	A developer building on Sui, Beep, or a402 (e.g. for an agent, MCP tool, or API paywall).
+	•	They know basic HTTP + JSON + web dev, but are new to a402 and Beep.
+	•	Their main questions are:
+	•	“How does a402 actually flow from request → 402 → payment → receipt → on-chain tx?”
+	•	“What does an a402 receipt look like, and how do I verify it?”
+	•	“What’s the minimal code I need to integrate this into my app?”
+
+The project should help them answer those questions visually and with copy-pasteable code examples.
+
+⸻
+
+3. Main flow (conceptual)
+
+The playground is built around the canonical a402 payment lifecycle:
+	1.	Client sends a request to a protected endpoint.
+	2.	Server responds with HTTP 402 Payment Required + a402 payment requirements (“challenge”).
+	3.	Client (or agent) triggers Beep to pay the invoice.
+	4.	Payment succeeds on-chain (Sui); a receipt is issued (a402).
+	5.	Receipt is sent back to the server, which verifies it.
+	6.	If valid, the server executes the protected action and returns normal 2xx response.
+
+The UI and backend are designed to simulate and visualize this lifecycle step by step.
+
+⸻
+
+4. Features as steps
+
+Below is a numbered list of the key features the project provides.
+When the user asks “what does X do?” or “how does the playground work?”, you should refer back to these steps.
+
+⸻
+
+Step 1 – HTTP 402 Request Builder
+What it is:
+	•	A left-hand panel where the user can construct a request that is expected to trigger an a402 payment challenge.
+
+Inputs:
+	•	Target URL (typically a demo endpoint hosted by this project).
+	•	Amount (e.g. 0.5 USDC).
+	•	Chain (e.g. sui-testnet).
+	•	Optional description/metadata.
+
+Behavior:
+	•	When the user clicks “Send request / get 402”:
+	•	The frontend calls the project’s backend.
+	•	The backend responds with a simulated (or real) HTTP 402 response containing an a402 payment challenge.
+
+LLM notes:
+	•	Treat this as the starting point of the flow.
+	•	When describing it, frame it as “how to test what a 402 + a402 challenge looks like without writing curl commands”.
+
+⸻
+
+Step 2 – a402 Challenge Viewer
+What it is:
+	•	A central panel/tab that shows the result of Step 1: the HTTP 402 payment challenge.
+
+Views:
+	1.	Raw view:
+	•	Full HTTP 402 response:
+	•	status line,
+	•	headers (including any a402-related headers),
+	•	body (payment requirements).
+	2.	Parsed / pretty view:
+	•	Required amount (e.g. 0.5 USDC).
+	•	Chain (e.g. sui-testnet).
+	•	Payment or checkout endpoint.
+	•	Nonce.
+	•	Expiry or validity window.
+	•	Any other important a402 fields.
+
+LLM notes:
+	•	This step is about understanding the challenge, not paying it.
+	•	You may compare it to inspecting a Stripe “payment intent”, but for a402.
+
+⸻
+
+Step 3 – Beep Pay Simulation / Trigger
+What it is:
+	•	A UI button like “Pay via Beep (test)” or “Simulate Beep payment”.
+
+Behavior:
+	•	When clicked, the playground:
+	•	Either calls a real Beep test endpoint OR
+	•	Uses a mocked service that models how Beep would pay the requested invoice.
+	•	The result is an a402 receipt:
+	•	Something that proves the payment was made (or at least simulates it faithfully).
+
+LLM notes:
+	•	Whether the payment is “real” or mocked depends on actual implementation and hackathon constraints.
+	•	Conceptually, treat it as: “We now move from challenge → payment completed → receipt issued”.
+
+⸻
+
+Step 4 – a402 Receipt Decoder
+What it is:
+	•	A panel/tab that shows the receipt created in Step 3.
+
+Views:
+	1.	Raw receipt input:
+	•	The raw header / JSON / token representing the a402 receipt.
+	2.	Decoded fields:
+	•	Payer address / account.
+	•	Recipient address / account.
+	•	Amount and asset (e.g. 0.5 USDC).
+	•	Chain (e.g. sui-testnet).
+	•	Nonce.
+	•	Signature or cryptographic proof fields.
+	•	Any session / context identifiers if relevant.
+
+LLM notes:
+	•	This is the heart of the “Inspector” part: turning obscure receipt data into a clear summary.
+	•	When explaining, emphasize that this helps devs see exactly what was paid and by whom.
+
+⸻
+
+Step 5 – Receipt Verification Engine
+What it is:
+	•	A verification step that checks whether the receipt is valid and acceptable for the previous challenge.
+
+Behavior:
+	•	User clicks “Verify receipt”.
+	•	The backend runs checks, such as:
+	•	Does the amount match what the challenge required?
+	•	Does the chain match?
+	•	Is the nonce fresh (no replay)?
+	•	Is the signature correct (using Beep/a402 public keys or mock keys)?
+	•	The UI shows:
+	•	✅ Valid receipt with a short explanation.
+	•	❌ Invalid receipt with specific reason(s), e.g.:
+	•	“Expected 0.5 USDC, got 0.4.”
+	•	“Chain mismatch.”
+	•	“Nonce has already been seen (possible replay).”
+	•	“Invalid signature.”
+
+LLM notes:
+	•	When writing explanations or docs, emphasize plain-language error messages that help devs debug.
+	•	This feature is crucial for making a402 integration less “black box”.
+
+⸻
+
+Step 6 – Sui Settlement Viewer
+What it is:
+	•	A panel/tab that connects the receipt to the on-chain transaction on Sui.
+
+Behavior:
+	•	Shows the Sui transaction ID / hash associated with the payment.
+	•	Displays:
+	•	from → to addresses,
+	•	amount,
+	•	timestamp,
+	•	possibly object IDs or other metadata.
+	•	Provides a “View on Sui Explorer” link that opens the transaction in an external explorer.
+
+LLM notes:
+	•	Think of this as the “block explorer overlay” inside the playground.
+	•	Very important for showing that a402 is not just abstract; it ties to real Sui settlement.
+
+⸻
+
+Step 7 – Error & Debug Inspector
+What it is:
+	•	A dedicated section that aggregates errors, validation failures, and debug info across the flow.
+
+Examples of messages:
+	•	“Expected 0.5 USDC, got 0.4 — this receipt would be rejected by your backend.”
+	•	“Nonce reused — treat this as a replay attempt.”
+	•	“Signature verification failed — receipt not trusted.”
+
+LLM notes:
+	•	When generating explanations for developers, lean on clear, actionable language.
+	•	The purpose is to transform cryptic protocol-level errors into something understandable.
+
+⸻
+
+Step 8 – Paste-in Receipt Inspector
+What it is:
+	•	A standalone tool inside the playground that lets devs paste any a402 receipt they captured from their logs.
+
+Behavior:
+	•	User pastes:
+	•	Raw a402 receipt (header / token / JSON).
+	•	Clicks “Inspect”.
+	•	The system:
+	•	Decodes it (Step 4 logic),
+	•	Runs verification (Step 5 logic),
+	•	Attempts to find associated Sui transaction (Step 6 logic).
+	•	Shows a human-readable summary of:
+	•	Who paid,
+	•	What they paid,
+	•	Whether it looks valid,
+	•	Which Sui transaction it corresponds to.
+
+LLM notes:
+	•	This mode is especially useful when devs have bugs in their own environment and just want to analyze a single problematic receipt.
+
+⸻
+
+Step 9 – Code Snippets & Integration Recipes
+What it is:
+	•	A right-hand panel that shows copy-paste code for integrating a402 + Beep in real apps.
+
+Targets:
+	•	Priority: Node.js / TypeScript (Express or similar).
+	•	Optionally: Python or Rust (if implemented).
+
+Example content:
+	•	How to:
+	•	Send an initial request and expect a 402.
+	•	Forward payment requirements to a client or agent.
+	•	Receive and parse receipts in a callback or webhook.
+	•	Verify receipts (using similar logic as Step 5).
+	•	Link Sui tx IDs to receipts in a database.
+
+LLM notes:
+	•	When users ask for “example integration” or “sample code”, generate small, minimalistic snippets that match this panel’s intent.
+	•	Do not invent new Beep endpoints; stay generic or clearly mark placeholders (e.g. /beep/pay as an example, not a guaranteed real endpoint).
+
+⸻
+
+5. Stretch / optional features
+
+These are nice-to-have features. They may exist or be planned; treat them as “optional extras” unless the user explicitly mentions them.
+	•	Flow Timeline Visualization
+	•	A visual timeline: Request → 402 → Payment → Receipt → Verification → Sui Tx.
+	•	Preset Scenarios
+	•	Preconfigured flows:
+	•	“Simple pay-per-call”
+	•	“MCP tool paywall”
+	•	“Refund scenario”
+	•	Sharing / Saved Sessions
+	•	Ability to store a debug session and share via URL.
+	•	Language tabs in code snippets
+	•	TS, Python, Rust, etc.
+	•	Mock MCP / Agent demo
+	•	A toy “agent tool” that uses a402 via Beep.
+
+⸻
+
+6. Constraints & assumptions for the LLM
+
+When reasoning about or generating content for this project:
+	1.	Do not invent undocumented Beep / a402 endpoints.
+	•	If specific endpoints, schemas, or keys are unknown, use placeholders and say they are examples.
+	2.	Assume Sui Testnet for most demos.
+	•	Unless otherwise stated, treat flows as testnet-oriented.
+	3.	Assume some functionality may be mocked for hackathon scope.
+	•	For example, payment and verification might be simulated instead of fully wired to live services.
+	4.	Stay focused on Beep + a402 + Sui.
+	•	Avoid drifting into unrelated chains or payment protocols unless explicitly asked to compare.
+	5.	Prioritise clarity and developer experience.
+	•	When answering questions, explain why each step exists and how it helps devs understand or debug a402.
+
+⸻
+
+7. How you should help using this context
+
+Based on this document, you (the LLM) should be able to:
+	•	Explain what the a402 Playground & Inspector is and why it’s useful.
+	•	Walk through the step-by-step flow of a402 payments in the UI.
+	•	Suggest MVP scoping for hackathon (which features first, which later).
+	•	Generate small, clean code snippets that match the idea of Step 9.
+	•	Help design error messages, UI copy, and docs that align with Steps 1–8.
+
+Use this as the authoritative, high-level spec for the project.
