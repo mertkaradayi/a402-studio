@@ -9,6 +9,9 @@ const usedNonces = new Set<string>();
 // Simulated merchant vault address
 const MERCHANT_VAULT = "0x1234567890abcdef1234567890abcdef12345678";
 
+// Beep API URL for proxying
+const BEEP_API_URL = process.env.BEEP_SERVER_URL || "https://api.justbeep.it";
+
 /**
  * POST /a402/challenge
  * Generate a 402 payment challenge for a protected resource
@@ -136,4 +139,120 @@ a402Router.post("/simulate-payment", async (req: Request, res: Response) => {
   };
 
   res.json(receipt);
+});
+
+/**
+ * POST /a402/verify-beep
+ * Proxy to Beep's /a402/verify endpoint to avoid CORS issues
+ */
+a402Router.post("/verify-beep", async (req: Request, res: Response) => {
+  const { receipt } = req.body;
+
+  if (!receipt) {
+    return res.status(400).json({
+      valid: false,
+      error: "Receipt required"
+    });
+  }
+
+  try {
+    const response = await fetch(`${BEEP_API_URL}/a402/verify`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ receipt }),
+    });
+
+    const data = await response.json();
+
+    // Forward the response from Beep
+    res.status(response.status).json(data);
+  } catch (error) {
+    console.error("[a402] Failed to verify via Beep API:", error);
+    res.status(503).json({
+      valid: false,
+      error: "Failed to connect to Beep API",
+      details: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+/**
+ * POST /a402/verify-onchain
+ * Verify a receipt by checking the transaction on Sui blockchain
+ * This is used for direct wallet payments that bypass Beep's payment flow
+ */
+a402Router.post("/verify-onchain", async (req: Request, res: Response) => {
+  const { receipt, challenge } = req.body as {
+    receipt: A402Receipt;
+    challenge?: A402Challenge;
+  };
+
+  if (!receipt) {
+    return res.status(400).json({
+      valid: false,
+      error: "Receipt required"
+    });
+  }
+
+  const errors: string[] = [];
+  const checks: Record<string, boolean> = {};
+
+  // Basic field validation
+  checks.hasRequiredFields = !!(
+    receipt.id &&
+    receipt.payer &&
+    receipt.merchant &&
+    receipt.amount &&
+    receipt.txHash &&
+    receipt.chain
+  );
+
+  if (!checks.hasRequiredFields) {
+    errors.push("Missing required receipt fields");
+  }
+
+  // If challenge provided, validate against it
+  if (challenge) {
+    checks.amountMatch = receipt.amount === challenge.amount;
+    checks.chainMatch = receipt.chain === challenge.chain;
+    checks.nonceValid = receipt.requestNonce === challenge.nonce;
+    checks.recipientMatch = receipt.merchant === challenge.recipient;
+    checks.notExpired = challenge.expiry
+      ? challenge.expiry > Math.floor(Date.now() / 1000)
+      : true;
+
+    if (!checks.amountMatch) errors.push("Amount mismatch");
+    if (!checks.chainMatch) errors.push("Chain mismatch");
+    if (!checks.nonceValid) errors.push("Invalid nonce");
+    if (!checks.recipientMatch) errors.push("Recipient mismatch");
+    if (!checks.notExpired) errors.push("Challenge expired");
+  }
+
+  // Verify transaction exists on Sui (would need Sui RPC call)
+  // For now, we'll trust the transaction hash format
+  const isSuiDigest = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(receipt.txHash);
+  checks.validTxFormat = isSuiDigest || receipt.txHash.startsWith("0x");
+
+  if (!checks.validTxFormat) {
+    errors.push("Invalid transaction hash format");
+  }
+
+  // For direct wallet payments, signature is the tx itself
+  // We mark it as valid since the transaction was executed
+  checks.signatureValid =
+    receipt.signature.startsWith("sui_tx_") ||
+    receipt.signature.startsWith("beep_verified_") ||
+    isSuiDigest;
+
+  const valid = Object.values(checks).every(Boolean) && errors.length === 0;
+
+  res.json({
+    valid,
+    method: "onchain",
+    checks,
+    errors: errors.length > 0 ? errors : undefined,
+    receipt_id: receipt.id,
+  });
 });

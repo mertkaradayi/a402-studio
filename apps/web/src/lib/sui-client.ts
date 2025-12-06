@@ -40,7 +40,15 @@ export async function getTransaction(
   chain: string
 ): Promise<TransactionLookupResult> {
   // Check if this is a mock transaction
-  if (txHash.includes("MOCK") || txHash.length < 60) {
+  // Real Sui digests are 43-44 characters in base58 format
+  const isMock =
+    txHash.includes("MOCK") ||
+    txHash.includes("DEMO") ||
+    txHash.includes("SIMULATED") ||
+    txHash.startsWith("0xDEMO") ||
+    txHash.startsWith("0xMOCK");
+
+  if (isMock) {
     return {
       found: false,
       transaction: null,

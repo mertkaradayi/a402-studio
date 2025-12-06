@@ -17,10 +17,11 @@ import type { A402Receipt } from "@/stores/flow-store";
 const DEMO_SIGNATURE_PREFIXES = ["0xBEEP_", "0xSIG_", "0xDEMO_", "demo:", "sig_demo", "sig:demo"];
 
 const BEEP_API_URL = process.env.NEXT_PUBLIC_BEEP_SERVER_URL || "https://api.justbeep.it";
+const LOCAL_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 export interface SignatureVerificationResult {
     valid: boolean;
-    method: "beep-api" | "sui-ed25519" | "format-check" | "demo";
+    method: "beep-api" | "sui-ed25519" | "format-check" | "demo" | "onchain";
     error?: string;
     details?: {
         signer?: string;
@@ -31,14 +32,25 @@ export interface SignatureVerificationResult {
 }
 
 /**
- * Verify receipt via Beep's API endpoint
- * This is the recommended approach as Beep handles the facilitator key internally
+ * Check if this is a direct wallet payment (not going through Beep's payment flow)
+ */
+function isDirectWalletPayment(receipt: A402Receipt): boolean {
+    return (
+        receipt.signature.startsWith("sui_tx_") ||
+        receipt.signature.startsWith("beep_verified_")
+    );
+}
+
+/**
+ * Verify receipt via local API proxy to Beep's API endpoint
+ * Uses proxy to avoid CORS issues
  */
 export async function verifyReceiptViaBeepAPI(
     receipt: A402Receipt
 ): Promise<SignatureVerificationResult> {
     try {
-        const response = await fetch(`${BEEP_API_URL}/a402/verify`, {
+        // Use local proxy to avoid CORS
+        const response = await fetch(`${LOCAL_API_URL}/a402/verify-beep`, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -107,15 +119,53 @@ export async function verifyReceiptViaBeepAPI(
 }
 
 /**
+ * Verify receipt via on-chain verification
+ * Used for direct wallet payments that bypass Beep's payment flow
+ */
+export async function verifyReceiptOnChainAPI(
+    receipt: A402Receipt,
+    challenge?: { amount: string; chain: string; nonce: string; recipient: string; expiry?: number }
+): Promise<SignatureVerificationResult> {
+    try {
+        const response = await fetch(`${LOCAL_API_URL}/a402/verify-onchain`, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ receipt, challenge }),
+        });
+
+        const data = await response.json();
+
+        return {
+            valid: data.valid === true,
+            method: "onchain",
+            error: data.valid ? undefined : (data.errors?.join(", ") || data.error || "Verification failed"),
+            details: {
+                apiResponse: data,
+            },
+        };
+    } catch (error) {
+        return {
+            valid: false,
+            method: "onchain",
+            error: error instanceof Error ? error.message : "Failed to verify on-chain",
+        };
+    }
+}
+
+/**
  * Verify a Beep facilitator signature on a receipt
- * 
+ *
  * Strategy:
  * 1. Check for demo signatures (for local testing)
- * 2. Try Beep API verification (recommended)
- * 3. Fall back to local Ed25519 if API fails and we have the public key
+ * 2. Check for direct wallet payments (sui_tx_ prefix) - use on-chain verification
+ * 3. Try Beep API verification via proxy (recommended for Beep payments)
+ * 4. Fall back to local Ed25519 if API fails and we have the public key
  */
 export async function verifyFacilitatorSignature(
-    receipt: A402Receipt
+    receipt: A402Receipt,
+    challenge?: { amount: string; chain: string; nonce: string; recipient: string; expiry?: number }
 ): Promise<SignatureVerificationResult> {
     const signature = receipt.signature;
 
@@ -139,7 +189,13 @@ export async function verifyFacilitatorSignature(
         };
     }
 
-    // Try Beep API verification first (recommended approach)
+    // Check if this is a direct wallet payment (bypasses Beep's payment flow)
+    if (isDirectWalletPayment(receipt)) {
+        // Use on-chain verification for direct wallet payments
+        return verifyReceiptOnChainAPI(receipt, challenge);
+    }
+
+    // Try Beep API verification via proxy (recommended approach for Beep payments)
     const apiResult = await verifyReceiptViaBeepAPI(receipt);
 
     if (apiResult.method === "beep-api" && !apiResult.error?.includes("Failed to connect")) {

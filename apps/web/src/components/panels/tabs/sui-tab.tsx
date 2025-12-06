@@ -18,8 +18,14 @@ export function SuiTab() {
   const [txDetails, setTxDetails] = useState<SuiTransactionDetails | null>(null);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
+  // Detect mock transactions by checking for known mock prefixes
+  // Real Sui transaction digests are 44 characters in base58 format
   const isMock = receipt
-    ? receipt.txHash.includes("MOCK") || receipt.txHash.length < 60
+    ? receipt.txHash.includes("MOCK") ||
+      receipt.txHash.includes("DEMO") ||
+      receipt.txHash.includes("SIMULATED") ||
+      receipt.txHash.startsWith("0xDEMO") ||
+      receipt.txHash.startsWith("0xMOCK")
     : false;
 
   // Fetch transaction details when receipt changes

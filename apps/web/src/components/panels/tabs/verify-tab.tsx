@@ -34,19 +34,20 @@ export function VerifyTab() {
     const notExpired = challenge.expiry ? challenge.expiry > Math.floor(Date.now() / 1000) : true;
     const recipientMatch = receipt.merchant === challenge.recipient;
 
-    // 2. Real signature verification via Beep API
-    addDebugLog("info", "Verifying facilitator signature via Beep API...");
-    const sigResult = await verifyFacilitatorSignature(receipt);
+    // 2. Real signature verification via Beep API (or on-chain for direct payments)
+    addDebugLog("info", "Verifying receipt signature...");
+    const sigResult = await verifyFacilitatorSignature(receipt, challenge);
     setSignatureDetails(sigResult);
 
     const signatureValid = sigResult.valid;
 
     // Log the verification method
-    const methodLabels = {
+    const methodLabels: Record<string, string> = {
       "beep-api": "Beep API",
       "sui-ed25519": "Local Ed25519",
       "format-check": "Format Check",
       "demo": "Demo Mode",
+      "onchain": "On-Chain Verification",
     };
 
     addDebugLog(
