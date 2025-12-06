@@ -70,12 +70,28 @@ export function VerifyTab() {
   if (!receipt) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="text-4xl mb-4 opacity-20">?</div>
-          <p className="text-muted-foreground text-sm">No receipt to verify.</p>
-          <p className="text-muted-foreground text-xs mt-1">
-            Complete a payment first.
+        <div className="text-center max-w-sm">
+          {/* Shield Icon */}
+          <div className="relative mb-6">
+            <div className="w-24 h-24 mx-auto rounded-2xl bg-gradient-to-br from-neon-cyan/20 to-neon-pink/20 border border-neon-cyan/30 flex items-center justify-center">
+              <svg className="w-10 h-10 text-neon-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+          </div>
+
+          <h3 className="text-lg font-semibold text-white mb-2">
+            Receipt Verification
+          </h3>
+          <p className="text-muted-foreground text-sm mb-4">
+            Complete a payment first to get a receipt that can be verified against the challenge.
           </p>
+          <div className="flex items-center justify-center gap-2 text-xs text-neon-cyan">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Make a payment in the Receipt tab first
+          </div>
         </div>
       </div>
     );
@@ -85,18 +101,47 @@ export function VerifyTab() {
     return (
       <div className="flex flex-col items-center justify-center h-full gap-6">
         <div className="text-center">
-          <p className="text-muted-foreground text-sm mb-2">
-            Receipt ready for verification
-          </p>
-          <p className="text-xs font-mono text-neon-cyan">{receipt.id}</p>
+          {/* Receipt Preview Card */}
+          <div className="bg-gradient-to-br from-neon-cyan/10 to-neon-pink/10 border border-neon-cyan/30 rounded-2xl p-6 mb-4">
+            <div className="flex items-center justify-center gap-2 mb-3">
+              <svg className="w-5 h-5 text-neon-cyan" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span className="text-sm font-medium text-white">Ready to Verify</span>
+            </div>
+            <div className="text-xs font-mono text-neon-cyan bg-black/30 px-3 py-1.5 rounded-lg">
+              {receipt.id}
+            </div>
+            <div className="mt-3 text-xs text-muted-foreground">
+              {receipt.amount} {receipt.asset} on {receipt.chain}
+            </div>
+          </div>
         </div>
         <button
           onClick={handleVerify}
           disabled={isLoading}
-          className="px-8 py-3 bg-neon-cyan text-black font-semibold rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed glow-cyan"
+          className="px-8 py-3 bg-neon-cyan text-black font-semibold rounded-lg hover:opacity-90 transition-all disabled:opacity-50 disabled:cursor-not-allowed glow-cyan flex items-center gap-2"
         >
-          {isLoading ? "Verifying..." : "Verify Receipt"}
+          {isLoading ? (
+            <>
+              <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+              Verifying...
+            </>
+          ) : (
+            <>
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+              Verify Receipt
+            </>
+          )}
         </button>
+        <p className="text-xs text-muted-foreground max-w-sm text-center">
+          This will check amount, chain, nonce, signature, and expiry against the original challenge.
+        </p>
       </div>
     );
   }
