@@ -44,45 +44,78 @@ export function TestEndpointMode() {
         // Ignore header parse errors
       }
 
-      // Note: In real implementation, this would go through your backend proxy
-      // to avoid CORS issues. For now, we simulate the response.
-      addDebugLog("warning", "CORS: Using simulated response for demo. Connect to backend for real requests.");
+      // Parse body for POST requests
+      let parsedBody: unknown = undefined;
+      if (method === "POST" && body) {
+        try {
+          parsedBody = JSON.parse(body);
+        } catch {
+          parsedBody = body; // Send as raw string if not valid JSON
+        }
+      }
 
-      // Simulate a 402 response for demo
-      await new Promise((resolve) => setTimeout(resolve, 1000));
+      addDebugLog("info", "Sending request through backend proxy...");
 
-      const simulatedResponse = {
-        status: 402,
+      // Make request through backend proxy to bypass CORS
+      const proxyResponse = await fetch("http://localhost:3001/proxy", {
+        method: "POST",
         headers: {
           "Content-Type": "application/json",
-          "X-A402-Version": "1.0",
         },
         body: JSON.stringify({
-          amount: "0.50",
-          asset: "USDC",
-          chain: "sui-testnet",
-          recipient: "0x1234567890abcdef1234567890abcdef12345678",
-          nonce: `nonce_${Date.now()}`,
-          expiry: Math.floor(Date.now() / 1000) + 300,
-        }, null, 2),
+          url,
+          method,
+          headers: customHeaders,
+          body: parsedBody,
+        }),
+      });
+
+      const proxyData = await proxyResponse.json();
+
+      // Check if proxy returned an error
+      if (proxyData.error) {
+        throw new Error(proxyData.error);
+      }
+
+      // Format the body for display
+      let formattedBody: string;
+      if (typeof proxyData.body === "string") {
+        // Try to pretty-print JSON
+        try {
+          formattedBody = JSON.stringify(JSON.parse(proxyData.body), null, 2);
+        } catch {
+          formattedBody = proxyData.body;
+        }
+      } else {
+        formattedBody = JSON.stringify(proxyData.body, null, 2);
+      }
+
+      const responseData = {
+        status: proxyData.status,
+        headers: proxyData.headers,
+        body: formattedBody,
       };
 
-      setResponse(simulatedResponse);
+      setResponse(responseData);
+      addDebugLog("success", `Received ${proxyData.status} ${proxyData.statusText}`);
 
       // Validate the response against a402 schema
+      let validationResult = null;
       try {
-        const parsed = JSON.parse(simulatedResponse.body);
-        const validation = validateChallengeSchema(parsed);
-        setChallengeValidation(validation);
+        const parsed = typeof proxyData.body === "string"
+          ? JSON.parse(proxyData.body)
+          : proxyData.body;
+        validationResult = validateChallengeSchema(parsed);
+        setChallengeValidation(validationResult);
 
-        if (validation.valid) {
-          setChallenge(parsed, `HTTP/1.1 ${simulatedResponse.status}\n${JSON.stringify(simulatedResponse.headers, null, 2)}\n\n${simulatedResponse.body}`);
-          addDebugLog("success", `Valid a402 challenge! Compliance score: ${validation.score}%`);
+        if (validationResult.valid) {
+          setChallenge(parsed, `HTTP/1.1 ${responseData.status}\n${JSON.stringify(responseData.headers, null, 2)}\n\n${responseData.body}`);
+          addDebugLog("success", `Valid a402 challenge! Compliance score: ${validationResult.score}%`);
         } else {
-          addDebugLog("error", `Invalid a402 challenge. ${validation.errors.length} issues found.`);
+          addDebugLog("warning", `Response received but not a valid a402 challenge. ${validationResult.errors.length} issues found.`);
         }
       } catch {
-        addDebugLog("error", "Response body is not valid JSON");
+        addDebugLog("info", "Response body is not JSON - skipping a402 validation");
       }
 
       // Add to history
@@ -94,12 +127,18 @@ export function TestEndpointMode() {
           headers: customHeaders,
           body: body || undefined,
         },
-        response: simulatedResponse,
-        validation: challengeValidation || undefined,
+        response: responseData,
+        validation: validationResult || undefined,
       });
 
     } catch (err) {
-      const message = err instanceof Error ? err.message : "Unknown error";
+      let message = err instanceof Error ? err.message : "Unknown error";
+
+      // Provide more helpful error messages
+      if (message.includes("Failed to fetch") || message.includes("NetworkError")) {
+        message = "Cannot connect to API server. Make sure it's running at localhost:3001";
+      }
+
       setError(message);
       addDebugLog("error", `Request failed: ${message}`);
     }
@@ -204,9 +243,9 @@ export function TestEndpointMode() {
           {/* Info */}
           <div className="text-xs text-muted-foreground bg-card/50 p-3 rounded-lg">
             <p>
-              <span className="text-neon-yellow font-medium">Note:</span> Due to
-              CORS, requests are currently proxied through a simulated backend.
-              Connect to the real API server for actual endpoint testing.
+              <span className="text-neon-green font-medium">✓ Proxy Active:</span> Requests
+              are routed through the backend proxy to bypass CORS restrictions.
+              Ensure the API server is running at <code className="text-neon-cyan">localhost:3001</code>.
             </p>
           </div>
         </div>

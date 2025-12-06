@@ -43,11 +43,11 @@
 
 ## Step 3: Backend Proxy for CORS Bypass
 
-- [ ] Add `axios` to API dependencies
-- [ ] Create `proxy.ts` route in `apps/api/src/routes/`
-- [ ] Register proxy route in `index.ts`
-- [ ] Update `test-endpoint-mode.tsx` to use proxy
-- [ ] Add proper error handling for failed requests
+- [x] Add `axios` to API dependencies
+- [x] Create `proxy.ts` route in `apps/api/src/routes/`
+- [x] Register proxy route in `index.ts`
+- [x] Update `test-endpoint-mode.tsx` to use proxy
+- [x] Add proper error handling for failed requests
 
 **What You'll Test:**
 1. Go to "Test Endpoint" mode
@@ -59,12 +59,12 @@
 
 ## Step 4: Connect Wallet to Demo Mode
 
-- [ ] Add "Pay with Wallet" button in Demo mode (alongside mock simulation)
-- [ ] Use `useCurrentAccount` hook to check wallet connection
-- [ ] Show "Connect Wallet First" message if not connected
-- [ ] Create payment transaction using Sui SDK
-- [ ] Sign transaction with connected wallet
-- [ ] (For now: Sign a dummy transaction — real Beep comes later)
+- [x] Add "Pay with Wallet" button in Demo mode (alongside mock simulation)
+- [x] Use `useCurrentAccount` hook to check wallet connection
+- [x] Show "Connect Wallet First" message if not connected
+- [x] Create payment transaction using Sui SDK
+- [x] Sign transaction with connected wallet
+- [x] (For now: Sign a dummy transaction — real Beep comes later)
 
 **What You'll Test:**
 1. Go to Demo mode
@@ -132,8 +132,8 @@
 |------|--------|-------|
 | 1. Wallet Integration | ✅ Complete | Required for Steps 4-6 |
 | 2. Sui RPC | ✅ Complete | Enables real tx lookup |
-| 3. Backend Proxy | ⏳ Not Started | Enables Test Endpoint mode |
-| 4. Wallet + Demo | ⏳ Not Started | Connects wallet to flow |
+| 3. Backend Proxy | ✅ Complete | Enables Test Endpoint mode |
+| 4. Wallet + Demo | ✅ Complete | Connects wallet to flow |
 | 5. Beep Integration | ⏳ Not Started | Real USDC payments |
 | 6. Signature Verification | ⏳ Not Started | Security hardening |
 | 7. Database | ⏳ Not Started | Production persistence |

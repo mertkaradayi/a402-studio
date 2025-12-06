@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { useCurrentAccount, useSignTransaction } from "@mysten/dapp-kit";
+import { Transaction } from "@mysten/sui/transactions";
 import { useFlowStore, PRESET_SCENARIOS, type PresetScenario } from "@/stores/flow-store";
 import { cn } from "@/lib/utils";
 import { CenterPanel } from "../panels/center-panel";
@@ -21,6 +23,11 @@ export function DemoMode() {
   } = useFlowStore();
 
   const [isCodeExpanded, setIsCodeExpanded] = useState(false);
+  const [isWalletPaymentLoading, setIsWalletPaymentLoading] = useState(false);
+
+  // Wallet hooks
+  const account = useCurrentAccount();
+  const { mutateAsync: signTransaction } = useSignTransaction();
 
   const handleLoadPreset = async (presetId: PresetScenario) => {
     const preset = PRESET_SCENARIOS[presetId];
@@ -56,6 +63,70 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
       `Payment simulated. Expected result: ${preset.expectedResult.toUpperCase()}`
     );
     setLoading(false);
+  };
+
+  const handleWalletPayment = async () => {
+    if (!account || !challenge) return;
+
+    setIsWalletPaymentLoading(true);
+    addDebugLog("info", "Initiating wallet payment...");
+    addDebugLog("info", `Wallet: ${account.address.slice(0, 10)}...`);
+
+    try {
+      // Create a dummy transaction for signing demonstration
+      // In production, this would be a real Beep payment transaction
+      const tx = new Transaction();
+
+      // Add a simple move call to demonstrate signing
+      // This transfers 0 SUI to the merchant (dummy transaction)
+      tx.transferObjects(
+        [tx.splitCoins(tx.gas, [0])],
+        challenge.recipient
+      );
+
+      addDebugLog("info", "Requesting wallet signature...");
+
+      // Sign the transaction
+      const { signature, bytes } = await signTransaction({
+        transaction: tx,
+      });
+
+      addDebugLog("success", "Transaction signed successfully!");
+      addDebugLog("info", `Signature: ${signature.slice(0, 20)}...`);
+
+      // For demo purposes, we'll create a mock receipt with the real signature
+      // In production, this would be submitted to the chain and Beep facilitator
+      // bytes is a base64-encoded string of the transaction bytes
+      const txHashPreview = bytes.replace(/[^a-fA-F0-9]/g, "").slice(0, 64);
+
+      const receipt = {
+        id: `rcpt_${Date.now()}`,
+        requestNonce: challenge.nonce,
+        payer: account.address,
+        merchant: challenge.recipient,
+        amount: challenge.amount,
+        asset: challenge.asset,
+        chain: challenge.chain,
+        txHash: `0x${txHashPreview || Date.now().toString(16)}`,
+        signature: signature,
+        issuedAt: Math.floor(Date.now() / 1000),
+      };
+
+      const rawReceipt = JSON.stringify(receipt, null, 2);
+      setReceipt(receipt, rawReceipt);
+      addDebugLog("success", "Wallet payment completed! (Demo mode - transaction not submitted)");
+
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+
+      if (message.includes("User rejected") || message.includes("rejected")) {
+        addDebugLog("warning", "Transaction rejected by user");
+      } else {
+        addDebugLog("error", `Wallet payment failed: ${message}`);
+      }
+    }
+
+    setIsWalletPaymentLoading(false);
   };
 
   return (
@@ -121,23 +192,61 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
             </button>
 
             {challenge && (
-              <button
-                onClick={handleSimulatePayment}
-                disabled={isLoading}
-                className="w-full px-4 py-2.5 bg-neon-green text-black font-semibold rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {isLoading ? "Processing..." : "Simulate Payment"}
-              </button>
+              <>
+                <button
+                  onClick={handleSimulatePayment}
+                  disabled={isLoading}
+                  className="w-full px-4 py-2.5 bg-neon-green text-black font-semibold rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {isLoading ? "Processing..." : "Simulate Payment"}
+                </button>
+
+                {/* Pay with Wallet Button */}
+                <button
+                  onClick={handleWalletPayment}
+                  disabled={!account || isWalletPaymentLoading || isLoading}
+                  className={cn(
+                    "w-full px-4 py-2.5 font-semibold rounded-md transition-all disabled:cursor-not-allowed",
+                    account
+                      ? "bg-neon-cyan text-black hover:opacity-90 disabled:opacity-50"
+                      : "bg-card border border-neon-cyan/50 text-neon-cyan hover:bg-neon-cyan/10"
+                  )}
+                >
+                  {isWalletPaymentLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Signing...
+                    </span>
+                  ) : account ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />
+                      </svg>
+                      Pay with Wallet
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                      </svg>
+                      Connect Wallet First
+                    </span>
+                  )}
+                </button>
+              </>
             )}
           </div>
 
           {/* Info */}
           <div className="text-xs text-muted-foreground bg-card/50 p-3 rounded-lg">
             <p>
-              <span className="text-neon-yellow font-medium">Tip:</span> Each
-              preset demonstrates a different scenario. Try "Valid Payment" to
-              see a successful flow, then try "Wrong Amount" to see validation
-              errors.
+              <span className="text-neon-yellow font-medium">Tip:</span> Use
+              "Simulate Payment" for mock flow testing, or connect your wallet and
+              "Pay with Wallet" to sign a real transaction. Try "Valid Payment" for
+              a successful flow.
             </p>
           </div>
         </div>
