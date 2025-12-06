@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useFlowStore, PRESET_SCENARIOS, type PresetScenario } from "@/stores/flow-store";
 import { cn } from "@/lib/utils";
 import { CenterPanel } from "../panels/center-panel";
@@ -18,6 +19,8 @@ export function DemoMode() {
     isLoading,
     setLoading,
   } = useFlowStore();
+
+  const [isCodeExpanded, setIsCodeExpanded] = useState(false);
 
   const handleLoadPreset = async (presetId: PresetScenario) => {
     const preset = PRESET_SCENARIOS[presetId];
@@ -141,13 +144,27 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
       </div>
 
       {/* Center Panel - Tabbed Viewer */}
-      <div className="flex-1 overflow-hidden">
+      <div className={cn(
+        "flex-1 overflow-hidden transition-all duration-300",
+        isCodeExpanded && "flex-shrink"
+      )}>
         <CenterPanel />
       </div>
 
-      {/* Right Panel - Code Export */}
-      <div className="w-80 border-l border-border flex-shrink-0 overflow-y-auto">
-        <CodeExportPanel />
+      {/* Right Panel - Code Export (Expandable) */}
+      <div
+        className={cn(
+          "border-l border-border flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out",
+          isCodeExpanded ? "w-[600px]" : "w-96"
+        )}
+      >
+        {/* Panel Content */}
+        <div className="h-full overflow-y-auto">
+          <CodeExportPanel
+            isExpanded={isCodeExpanded}
+            onToggleExpand={() => setIsCodeExpanded(!isCodeExpanded)}
+          />
+        </div>
       </div>
     </div>
   );
