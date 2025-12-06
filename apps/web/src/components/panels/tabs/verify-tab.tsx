@@ -27,6 +27,8 @@ export function VerifyTab() {
     const chainMatch = receipt.chain === challenge.chain;
     const nonceValid = receipt.requestNonce === challenge.nonce;
     const signatureValid = true; // Mock
+    const notExpired = challenge.expiry ? challenge.expiry > Math.floor(Date.now() / 1000) : true;
+    const recipientMatch = receipt.merchant === challenge.recipient;
 
     const errors: string[] = [];
     if (!amountMatch)
@@ -37,15 +39,21 @@ export function VerifyTab() {
       errors.push("Nonce mismatch or already used");
     if (!signatureValid)
       errors.push("Invalid signature");
+    if (!notExpired)
+      errors.push("Challenge has expired");
+    if (!recipientMatch)
+      errors.push(`Recipient mismatch: expected ${challenge.recipient}, got ${receipt.merchant}`);
 
     const result = {
-      valid: amountMatch && chainMatch && nonceValid && signatureValid,
+      valid: amountMatch && chainMatch && nonceValid && signatureValid && notExpired && recipientMatch,
       errors,
       checks: {
         amountMatch,
         chainMatch,
         nonceValid,
         signatureValid,
+        notExpired,
+        recipientMatch,
       },
     };
 

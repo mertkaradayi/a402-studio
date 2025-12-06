@@ -127,7 +127,7 @@ interface FlowState {
   // Actions - Request
   setRequestConfig: (config: Partial<RequestConfig>) => void;
   setChallenge: (challenge: A402Challenge, rawResponse: string) => void;
-  setChallengeValidation: (validation: SchemaValidationResult) => void;
+  setChallengeValidation: (validation: SchemaValidationResult | null) => void;
 
   // Actions - Receipt
   setReceipt: (receipt: A402Receipt, rawReceipt: string) => void;

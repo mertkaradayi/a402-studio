@@ -5,11 +5,19 @@
     "moduleResolution": "bundler",
     "outDir": "./dist",
     "rootDir": "./src",
+    "noEmit": false,
     "baseUrl": ".",
     "paths": {
-      "@shared/types": ["../../packages/shared/src"]
+      "@shared/types": [
+        "../../packages/shared/dist"
+      ]
     }
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["node_modules", "dist"]
+  "include": [
+    "src/**/*.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "dist"
+  ]
 }
