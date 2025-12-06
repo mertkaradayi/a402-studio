@@ -96,10 +96,10 @@
 
 ## Step 6: Real Signature Verification
 
-- [ ] Get Beep facilitator public key (from docs or API)
-- [ ] Update `validators.ts` with real signature check
-- [ ] Use Sui crypto utilities to verify
-- [ ] Update Verify tab to show real verification status
+- [x] Get Beep facilitator public key (from docs or API)
+- [x] Update `validators.ts` with real signature check
+- [x] Use Sui crypto utilities to verify
+- [x] Update Verify tab to show real verification status
 
 **What You'll Test:**
 1. Complete a real payment (Step 5)
@@ -135,7 +135,7 @@
 | 3. Backend Proxy | ✅ Complete | Enables Test Endpoint mode |
 | 4. Wallet + Demo | ✅ Complete | Connects wallet to flow |
 | 5. Beep Integration | ✅ Complete | MCP client + Pay with Beep |
-| 6. Signature Verification | ⏳ Not Started | Security hardening |
+| 6. Signature Verification | ✅ Complete | Real Ed25519 + format checks |
 | 7. Database | ⏳ Not Started | Production persistence |
 
 ---

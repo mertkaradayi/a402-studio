@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useFlowStore } from "@/stores/flow-store";
 import { cn } from "@/lib/utils";
+import { verifyFacilitatorSignature, isValidSignatureFormat, type SignatureVerificationResult } from "@/lib/signature-verification";
 
 export function VerifyTab() {
   const {
@@ -14,21 +16,38 @@ export function VerifyTab() {
     setLoading,
   } = useFlowStore();
 
+  const [signatureDetails, setSignatureDetails] = useState<SignatureVerificationResult | null>(null);
+
   const handleVerify = async () => {
     if (!receipt || !challenge) return;
 
     setLoading(true);
-    addDebugLog("info", "Verifying receipt...");
+    addDebugLog("info", "Verifying receipt with cryptographic checks...");
 
-    // Simulate verification delay
-    await new Promise((resolve) => setTimeout(resolve, 1000));
+    // Simulate network delay for UX
+    await new Promise((resolve) => setTimeout(resolve, 800));
 
+    // 1. Basic field matching
     const amountMatch = receipt.amount === challenge.amount;
     const chainMatch = receipt.chain === challenge.chain;
     const nonceValid = receipt.requestNonce === challenge.nonce;
-    const signatureValid = true; // Mock
     const notExpired = challenge.expiry ? challenge.expiry > Math.floor(Date.now() / 1000) : true;
     const recipientMatch = receipt.merchant === challenge.recipient;
+
+    // 2. Real signature verification
+    addDebugLog("info", "Verifying facilitator signature...");
+    const sigResult = await verifyFacilitatorSignature(receipt);
+    setSignatureDetails(sigResult);
+
+    const signatureValid = sigResult.valid;
+    addDebugLog(
+      signatureValid ? "success" : "error",
+      `Signature verification: ${signatureValid ? "PASSED" : "FAILED"} (method: ${sigResult.method})`
+    );
+
+    if (sigResult.details?.signer) {
+      addDebugLog("info", `Signer: ${sigResult.details.signer}`);
+    }
 
     const errors: string[] = [];
     if (!amountMatch)
@@ -38,7 +57,7 @@ export function VerifyTab() {
     if (!nonceValid)
       errors.push("Nonce mismatch or already used");
     if (!signatureValid)
-      errors.push("Invalid signature");
+      errors.push(sigResult.error || "Invalid facilitator signature");
     if (!notExpired)
       errors.push("Challenge has expired");
     if (!recipientMatch)
@@ -58,9 +77,10 @@ export function VerifyTab() {
     };
 
     if (result.valid) {
-      addDebugLog("info", "Receipt verification PASSED");
+      addDebugLog("success", "Receipt verification PASSED - All checks passed!");
     } else {
-      errors.forEach((err) => addDebugLog("error", err));
+      addDebugLog("error", `Receipt verification FAILED - ${errors.length} error(s)`);
+      errors.forEach((err) => addDebugLog("error", `  → ${err}`));
     }
 
     setVerificationResult(result);

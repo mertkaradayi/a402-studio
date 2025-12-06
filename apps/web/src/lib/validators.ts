@@ -1,4 +1,5 @@
 import type { A402Challenge, A402Receipt, SchemaValidationResult, VerificationResult } from "@/stores/flow-store";
+import { isValidSignatureFormat } from "./signature-verification";
 
 /**
  * Validate a402 challenge against the spec
@@ -118,8 +119,12 @@ export function validateReceiptSchema(receipt: unknown): SchemaValidationResult 
 
   if (!r.signature) {
     errors.push({ field: "signature", message: "Missing 'signature' field (required for verification)", severity: "error" });
-  } else if (typeof r.signature === "string" && !r.signature.startsWith("0x") && !r.signature.startsWith("sig_")) {
-    errors.push({ field: "signature", message: "Signature format looks invalid", severity: "warning" });
+  } else {
+    // Use real signature format validation
+    const sigValid = isValidSignatureFormat(r.signature as string);
+    if (!sigValid) {
+      errors.push({ field: "signature", message: "Signature format is invalid - must be hex (0x...), base64, or sig_ prefixed", severity: "error" });
+    }
   }
 
   if (!r.requestNonce && !r.request_nonce) {
@@ -182,10 +187,10 @@ export function verifyReceiptAgainstChallenge(
     errors.push(`Challenge expired ${expiredAgo} seconds ago`);
   }
 
-  // Mock signature validation (in real impl, would verify against facilitator public key)
-  const signatureValid = receipt.signature.startsWith("0x") || receipt.signature.startsWith("sig_");
+  // Real signature format validation (cryptographic verification happens async separately)
+  const signatureValid = isValidSignatureFormat(receipt.signature);
   if (!signatureValid) {
-    errors.push("Invalid signature format - signature appears malformed");
+    errors.push("Invalid signature format - signature must be hex (0x...), base64, or sig_ prefixed");
   }
 
   return {
