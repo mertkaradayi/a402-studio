@@ -8,14 +8,31 @@ export function ChallengeTab() {
   if (!challenge) {
     return (
       <div className="flex items-center justify-center h-full">
-        <div className="text-center">
-          <div className="text-4xl mb-4 opacity-20">402</div>
-          <p className="text-muted-foreground text-sm">
-            No challenge received yet.
+        <div className="text-center max-w-sm">
+          {/* Animated 402 Icon */}
+          <div className="relative mb-6">
+            <div className="w-24 h-24 mx-auto rounded-2xl bg-gradient-to-br from-neon-pink/20 to-neon-cyan/20 border border-neon-pink/30 flex items-center justify-center">
+              <span className="text-4xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-neon-pink to-neon-cyan">
+                402
+              </span>
+            </div>
+            <div className="absolute -bottom-2 -right-2 w-8 h-8 bg-neon-yellow rounded-full flex items-center justify-center animate-bounce">
+              <span className="text-black text-sm">?</span>
+            </div>
+          </div>
+
+          <h3 className="text-lg font-semibold text-white mb-2">
+            No Challenge Yet
+          </h3>
+          <p className="text-muted-foreground text-sm mb-4">
+            Select a preset scenario and click "Load Challenge" to see the HTTP 402 response.
           </p>
-          <p className="text-muted-foreground text-xs mt-1">
-            Use the Request Builder to get a 402 challenge.
-          </p>
+          <div className="flex items-center justify-center gap-2 text-xs text-neon-cyan">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+            </svg>
+            Use the left panel to get started
+          </div>
         </div>
       </div>
     );
