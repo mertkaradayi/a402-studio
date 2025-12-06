@@ -7,6 +7,7 @@ import { useFlowStore, PRESET_SCENARIOS, type PresetScenario } from "@/stores/fl
 import { cn } from "@/lib/utils";
 import { CenterPanel } from "../panels/center-panel";
 import { CodeExportPanel } from "../panels/code-export-panel";
+import { useBeepPayment, type BeepPaymentReceipt } from "@/components/beep/beep-checkout";
 
 const PRESETS = Object.entries(PRESET_SCENARIOS).filter(([key]) => key !== "custom") as [PresetScenario, typeof PRESET_SCENARIOS[PresetScenario]][];
 
@@ -24,6 +25,9 @@ export function DemoMode() {
 
   const [isCodeExpanded, setIsCodeExpanded] = useState(false);
   const [isWalletPaymentLoading, setIsWalletPaymentLoading] = useState(false);
+
+  // Beep payment hook
+  const { initiatePayment, isProcessing: isBeepPaymentLoading, error: beepError } = useBeepPayment();
 
   // Wallet hooks
   const account = useCurrentAccount();
@@ -127,6 +131,63 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
     }
 
     setIsWalletPaymentLoading(false);
+  };
+
+  const handleBeepPayment = async () => {
+    if (!challenge) return;
+    if (!account) {
+      addDebugLog("warning", "Please connect your wallet first to use Beep payments");
+      return;
+    }
+
+    addDebugLog("info", "Initiating Beep payment via SDK...");
+    addDebugLog("info", `Using @beep-it/checkout-widget & @beep-it/sdk-core`);
+    addDebugLog("info", `Payment amount: ${challenge.amount} ${challenge.asset}`);
+    addDebugLog("info", `Recipient: ${challenge.recipient.slice(0, 20)}...`);
+
+    try {
+      // Use the Beep SDK payment flow
+      const beepReceipt = await initiatePayment(
+        challenge.amount,
+        challenge.asset,
+        challenge.recipient,
+        challenge.nonce
+      );
+
+      if (!beepReceipt) {
+        if (beepError) {
+          addDebugLog("error", `Beep payment failed: ${beepError.message}`);
+        }
+        return;
+      }
+
+      addDebugLog("success", "Beep payment completed!");
+      addDebugLog("info", `Receipt ID: ${beepReceipt.id}`);
+      addDebugLog("info", `Transaction: ${beepReceipt.txHash.slice(0, 20)}...`);
+      addDebugLog("info", `Facilitator signature: ${beepReceipt.signature.slice(0, 20)}...`);
+
+      // Convert BeepReceipt to the format expected by setReceipt
+      const receipt = {
+        id: beepReceipt.id,
+        requestNonce: challenge.nonce,
+        payer: beepReceipt.payer,
+        merchant: beepReceipt.merchant,
+        amount: beepReceipt.amount,
+        asset: beepReceipt.asset,
+        chain: beepReceipt.chain,
+        txHash: beepReceipt.txHash,
+        signature: beepReceipt.signature,
+        issuedAt: beepReceipt.issuedAt,
+      };
+
+      const rawReceipt = JSON.stringify(receipt, null, 2);
+      setReceipt(receipt, rawReceipt);
+      addDebugLog("success", "Beep receipt verified and stored!");
+
+    } catch (err) {
+      const message = err instanceof Error ? err.message : "Unknown error";
+      addDebugLog("error", `Beep payment failed: ${message}`);
+    }
   };
 
   return (
@@ -236,6 +297,42 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
                     </span>
                   )}
                 </button>
+
+                {/* Pay with Beep Button */}
+                <button
+                  onClick={handleBeepPayment}
+                  disabled={!account || isBeepPaymentLoading || isLoading}
+                  className={cn(
+                    "w-full px-4 py-2.5 font-semibold rounded-md transition-all disabled:cursor-not-allowed",
+                    account
+                      ? "bg-gradient-to-r from-purple-500 to-pink-500 text-white hover:opacity-90 disabled:opacity-50"
+                      : "bg-card border border-purple-500/50 text-purple-400 hover:bg-purple-500/10"
+                  )}
+                >
+                  {isBeepPaymentLoading ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                      Processing Beep...
+                    </span>
+                  ) : account ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Pay with Beep
+                    </span>
+                  ) : (
+                    <span className="flex items-center justify-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                      </svg>
+                      Connect Wallet for Beep
+                    </span>
+                  )}
+                </button>
               </>
             )}
           </div>
@@ -244,9 +341,8 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
           <div className="text-xs text-muted-foreground bg-card/50 p-3 rounded-lg">
             <p>
               <span className="text-neon-yellow font-medium">Tip:</span> Use
-              "Simulate Payment" for mock flow testing, or connect your wallet and
-              "Pay with Wallet" to sign a real transaction. Try "Valid Payment" for
-              a successful flow.
+              "Simulate Payment" for mock testing, "Pay with Wallet" for signing,
+              or "Pay with Beep" for the full a402 MCP flow.
             </p>
           </div>
         </div>

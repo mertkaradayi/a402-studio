@@ -77,12 +77,12 @@
 
 ## Step 5: Beep SDK / MCP Integration
 
-- [ ] Research Beep SDK or MCP server setup
-- [ ] Install Beep packages (if available)
-- [ ] Create `beep-client.ts` utility
-- [ ] Implement `createBeepPayment()` function
-- [ ] Replace mock simulation with real Beep payment flow
-- [ ] Handle Beep receipt response
+- [x] Research Beep SDK or MCP server setup
+- [x] Install Beep packages (if available)
+- [x] Create `beep-client.ts` utility
+- [x] Implement `createBeepPayment()` function
+- [x] Replace mock simulation with real Beep payment flow
+- [x] Handle Beep receipt response
 
 **What You'll Test:**
 1. Ensure you have testnet USDC in your wallet
@@ -134,7 +134,7 @@
 | 2. Sui RPC | ✅ Complete | Enables real tx lookup |
 | 3. Backend Proxy | ✅ Complete | Enables Test Endpoint mode |
 | 4. Wallet + Demo | ✅ Complete | Connects wallet to flow |
-| 5. Beep Integration | ⏳ Not Started | Real USDC payments |
+| 5. Beep Integration | ✅ Complete | MCP client + Pay with Beep |
 | 6. Signature Verification | ⏳ Not Started | Security hardening |
 | 7. Database | ⏳ Not Started | Production persistence |
 
