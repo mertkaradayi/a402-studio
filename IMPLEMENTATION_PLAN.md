@@ -25,12 +25,12 @@
 
 ## Step 2: Sui RPC Integration (Transaction Lookup)
 
-- [ ] Create `sui-client.ts` utility with transaction lookup
-- [ ] Add `getTransaction()` function to fetch tx by digest
-- [ ] Add `verifyTransactionOnChain()` to check if tx exists
-- [ ] Update Sui Tab to show real transaction data when available
-- [ ] Add loading states and error handling
-- [ ] Link to Sui Explorer for transaction
+- [x] Create `sui-client.ts` utility with transaction lookup
+- [x] Add `getTransaction()` function to fetch tx by digest
+- [x] Add `verifyTransactionOnChain()` to check if tx exists
+- [x] Update Sui Tab to show real transaction data when available
+- [x] Add loading states and error handling
+- [x] Link to Sui Explorer for transaction
 
 **What You'll Test:**
 1. Go to Demo mode
@@ -131,7 +131,7 @@
 | Step | Status | Notes |
 |------|--------|-------|
 | 1. Wallet Integration | ✅ Complete | Required for Steps 4-6 |
-| 2. Sui RPC | ⏳ Not Started | Enables real tx lookup |
+| 2. Sui RPC | ✅ Complete | Enables real tx lookup |
 | 3. Backend Proxy | ⏳ Not Started | Enables Test Endpoint mode |
 | 4. Wallet + Demo | ⏳ Not Started | Connects wallet to flow |
 | 5. Beep Integration | ⏳ Not Started | Real USDC payments |
