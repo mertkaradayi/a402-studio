@@ -154,16 +154,46 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
       {/* Right Panel - Code Export (Expandable) */}
       <div
         className={cn(
-          "border-l border-border flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out",
+          "flex-shrink-0 overflow-hidden transition-all duration-300 ease-in-out flex",
           isCodeExpanded ? "w-[600px]" : "w-96"
         )}
       >
+        {/* Left Edge Toggle Handle */}
+        <button
+          onClick={() => setIsCodeExpanded(!isCodeExpanded)}
+          className={cn(
+            "w-5 flex-shrink-0 border-l border-r border-border",
+            "flex items-center justify-center",
+            "bg-card/50 hover:bg-neon-yellow/10 transition-all cursor-pointer group",
+            isCodeExpanded && "bg-neon-yellow/5"
+          )}
+          title={isCodeExpanded ? "Collapse panel" : "Expand panel"}
+        >
+          {/* Chevron Arrow */}
+          <svg
+            className={cn(
+              "w-3 h-3 transition-all",
+              isCodeExpanded
+                ? "text-neon-yellow"
+                : "text-muted-foreground group-hover:text-neon-yellow"
+            )}
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            {isCodeExpanded ? (
+              /* Right arrow - click to collapse (shrink to right) */
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+            ) : (
+              /* Left arrow - click to expand (grow to left) */
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+            )}
+          </svg>
+        </button>
+
         {/* Panel Content */}
-        <div className="h-full overflow-y-auto">
-          <CodeExportPanel
-            isExpanded={isCodeExpanded}
-            onToggleExpand={() => setIsCodeExpanded(!isCodeExpanded)}
-          />
+        <div className="flex-1 h-full overflow-y-auto border-l border-border">
+          <CodeExportPanel isExpanded={isCodeExpanded} />
         </div>
       </div>
     </div>

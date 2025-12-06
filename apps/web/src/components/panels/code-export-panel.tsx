@@ -138,10 +138,9 @@ function highlightCode(code: string, format: ExportFormat): React.ReactNode[] {
 
 interface CodeExportPanelProps {
   isExpanded?: boolean;
-  onToggleExpand?: () => void;
 }
 
-export function CodeExportPanel({ isExpanded = false, onToggleExpand }: CodeExportPanelProps) {
+export function CodeExportPanel({ isExpanded = false }: CodeExportPanelProps) {
   const { challenge, receipt, requestConfig, addDebugLog } = useFlowStore();
   const [selectedFormat, setSelectedFormat] = useState<ExportFormat>("typescript");
   const [copied, setCopied] = useState(false);
@@ -186,51 +185,22 @@ export function CodeExportPanel({ isExpanded = false, onToggleExpand }: CodeExpo
 
   return (
     <div className="h-full flex flex-col">
-      {/* Header with Expand Button */}
+      {/* Header */}
       <div className="p-4 border-b border-border bg-gradient-to-r from-neon-yellow/5 to-transparent">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-neon-yellow to-orange-500 flex items-center justify-center">
-              <svg className="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-sm font-semibold text-white">
-                Export as Code
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Copy request code for your app
-              </p>
-            </div>
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-neon-yellow to-orange-500 flex items-center justify-center">
+            <svg className="w-4 h-4 text-black" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+            </svg>
           </div>
-          {onToggleExpand && (
-            <button
-              onClick={onToggleExpand}
-              className={cn(
-                "p-2 rounded-lg transition-all flex items-center gap-1.5",
-                isExpanded
-                  ? "bg-neon-yellow/20 text-neon-yellow"
-                  : "hover:bg-white/10 text-muted-foreground hover:text-neon-yellow"
-              )}
-              title={isExpanded ? "Collapse panel" : "Expand panel"}
-            >
-              <svg
-                className={cn(
-                  "w-4 h-4 transition-transform duration-300",
-                  isExpanded && "rotate-180"
-                )}
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
-              <span className="text-xs font-medium">
-                {isExpanded ? "Collapse" : "Expand"}
-              </span>
-            </button>
-          )}
+          <div>
+            <h2 className="text-sm font-semibold text-white">
+              Export as Code
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Copy request code for your app
+            </p>
+          </div>
         </div>
       </div>
 
