@@ -10,13 +10,16 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@mysten/dapp-kit": "^0.19.11",
+    "@mysten/sui": "^1.45.2",
+    "@shared/types": "*",
+    "@tanstack/react-query": "^5.90.12",
+    "clsx": "^2.1.1",
     "next": "^15.1.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
-    "zustand": "^5.0.2",
-    "clsx": "^2.1.1",
     "tailwind-merge": "^2.6.0",
-    "@shared/types": "*"
+    "zustand": "^5.0.2"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

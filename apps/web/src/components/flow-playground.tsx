@@ -8,6 +8,7 @@ import { DemoMode } from "./modes/demo-mode";
 import { TestEndpointMode } from "./modes/test-endpoint-mode";
 import { InspectorMode } from "./modes/inspector-mode";
 import { HistoryPanel } from "./panels/history-panel";
+import { WalletButton } from "./wallet-button";
 
 const MODES: { id: AppMode; label: string; description: string }[] = [
   { id: "demo", label: "Demo", description: "Learn the a402 flow with mock data" },
@@ -70,6 +71,10 @@ export function FlowPlayground() {
             </div>
             <ModeSelector />
           </div>
+
+          {/* Wallet Connection */}
+          <WalletButton />
+
           <div className="flex items-center gap-3">
             <button
               onClick={() => setShowHistory(!showHistory)}
