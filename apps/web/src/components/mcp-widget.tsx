@@ -152,7 +152,7 @@ export function MCPWidget() {
           ? data.tools.map((tool: any): MCPTool => ({
             name: tool.name,
             description: tool.description || "",
-            category: tool.category || "unknown",
+            category: tool.category,
             requiresPayment: tool.requiresPayment ?? false,
             parameters: tool.inputSchema?.properties
               ? Object.entries(tool.inputSchema.properties).map(([key, value]: [string, any]) => ({
@@ -466,9 +466,11 @@ export function MCPWidget() {
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-sm font-medium">{tool.name}</span>
-                  <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium uppercase border", categoryBadge(tool.category))}>
-                    {tool.category || "tool"}
-                  </span>
+                  {tool.category && tool.category !== "unknown" && (
+                    <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium uppercase border", categoryBadge(tool.category))}>
+                      {tool.category}
+                    </span>
+                  )}
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{tool.description}</p>
               </div>
@@ -508,9 +510,11 @@ export function MCPWidget() {
           <CardHeader className="pb-2">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-mono">{selectedTool.name}</CardTitle>
-              <span className={cn("px-2 py-0.5 rounded text-xs font-medium uppercase border", categoryBadge(selectedTool.category))}>
-                {selectedTool.category || "tool"}
-              </span>
+              {selectedTool.category && selectedTool.category !== "unknown" && (
+                <span className={cn("px-2 py-0.5 rounded text-xs font-medium uppercase border", categoryBadge(selectedTool.category))}>
+                  {selectedTool.category}
+                </span>
+              )}
             </div>
           </CardHeader>
           {selectedTool.description && (
@@ -603,7 +607,7 @@ export function MCPWidget() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <pre className="text-xs font-mono bg-muted/50 p-2 rounded overflow-x-auto">
+              <pre className="text-xs font-mono bg-muted/50 p-2 rounded overflow-x-auto whitespace-pre-wrap break-all">
                 {JSON.stringify(currentInvocation.result, null, 2)}
               </pre>
             </CardContent>
