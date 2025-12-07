@@ -15,119 +15,124 @@ export function FlowPlayground() {
   const network = process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "mainnet" : "testnet";
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground transition-colors duration-300">
+    <div className="flex flex-col h-screen bg-background text-foreground">
       {/* Header */}
       <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="px-6 py-4 flex items-center justify-between">
+        <div className="h-14 px-6 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20">
-              <span className="text-white font-bold text-lg">🐝</span>
+            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+              <svg className="w-4 h-4 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
             </div>
-            <div>
-              <h1 className="text-lg font-bold tracking-tight">Beep Playground</h1>
-              <p className="text-xs text-muted-foreground">
-                USDC Payments on Sui
-              </p>
+            <div className="flex items-baseline gap-2">
+              <span className="font-semibold tracking-tight">Beep</span>
+              <span className="text-muted-foreground text-sm font-medium">Playground</span>
             </div>
           </div>
 
-          {/* Actions */}
-          <div className="flex items-center gap-3">
-            {/* Mode Toggle (Simulation / Live) */}
-            <div className="flex items-center bg-muted rounded-lg p-0.5">
+          {/* Center: Mode Toggle */}
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
+            <div className="flex items-center border border-border rounded-lg overflow-hidden bg-muted/50">
               <button
                 onClick={() => setPaymentMode("simulation")}
                 className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  "px-4 py-1.5 text-sm font-medium transition-all relative",
                   paymentMode === "simulation"
-                    ? "bg-primary text-primary-foreground shadow-sm"
+                    ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                Simulation
+                Sandbox
+                {paymentMode === "simulation" && (
+                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
+                )}
               </button>
+              <div className="w-px h-5 bg-border" />
               <button
                 onClick={() => setPaymentMode("live")}
                 className={cn(
-                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  "px-4 py-1.5 text-sm font-medium transition-all relative",
                   paymentMode === "live"
-                    ? "bg-neon-green text-black shadow-sm"
+                    ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 Live
+                {paymentMode === "live" && (
+                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-8 h-0.5 bg-neon-green rounded-full" />
+                )}
               </button>
             </div>
+          </div>
 
-            <div className="w-px h-6 bg-border" />
-
-            {/* Network Badge */}
-            <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium border bg-muted">
-              <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", network === 'mainnet' ? 'bg-neon-green' : 'bg-neon-yellow')} />
-              <span className="uppercase">{network}</span>
+          {/* Right Actions */}
+          <div className="flex items-center gap-2">
+            <div className={cn(
+              "text-xs px-2 py-1 rounded font-mono",
+              network === 'mainnet'
+                ? 'text-neon-green bg-neon-green/10'
+                : 'text-neon-yellow bg-neon-yellow/10'
+            )}>
+              {network}
             </div>
-
-            <div className="w-px h-6 bg-border" />
 
             <ModeToggle />
 
             <WalletButton />
 
             {(receipt || currentStep >= 0) && (
-              <>
-                <div className="w-px h-6 bg-border" />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => {
-                    resetFlow();
-                    resetSteps();
-                  }}
-                  className="hover:border-primary hover:text-primary transition-colors"
-                >
-                  Reset
-                </Button>
-              </>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  resetFlow();
+                  resetSteps();
+                }}
+                className="text-muted-foreground hover:text-foreground"
+              >
+                Reset
+              </Button>
             )}
           </div>
         </div>
 
-        {/* Step Indicator - Show when steps are active */}
+        {/* Step Indicator */}
         {currentStep >= 0 && (
-          <div className="px-6 pb-4 pt-2 border-t border-border/50 bg-muted/20">
+          <div className="px-6 pb-3 border-t border-border/50 bg-muted/10">
             <StepIndicator currentStep={currentStep} />
           </div>
         )}
       </header>
 
-      {/* Main Content - 2 Column Layout */}
+      {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Column - Payment Widget (60%) */}
-        <div className="w-full md:w-[60%] border-r border-border overflow-hidden bg-muted/20 relative">
-          <div className="absolute inset-0 bg-[radial-gradient(#36363B_1px,transparent_1px)] [background-size:16px_16px] opacity-[0.03] dark:opacity-[0.1] pointer-events-none" />
+        {/* Left: Payment Widget */}
+        <div className="w-full md:w-[55%] border-r border-border overflow-hidden relative">
+          <div className="absolute inset-0 bg-[radial-gradient(#36363B_1px,transparent_1px)] [background-size:20px_20px] opacity-[0.02] dark:opacity-[0.08] pointer-events-none" />
           <PaymentWidget />
         </div>
 
-        {/* Right Column - Results Panel (40%) */}
-        <div className="hidden md:block w-[40%] overflow-hidden bg-background">
+        {/* Right: Results Panel */}
+        <div className="hidden md:block w-[45%] overflow-hidden bg-muted/5">
           <ResultsPanel />
         </div>
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-card/50 px-6 py-2">
+      <footer className="border-t border-border bg-card/30 px-6 py-2">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
-          <div className="flex items-center gap-4">
-            <span>Powered by <span className="font-semibold text-foreground">Beep</span></span>
-            <span>•</span>
+          <div className="flex items-center gap-3">
+            <span>Powered by <span className="font-medium text-foreground">Beep</span></span>
+            <span className="text-border">•</span>
             <span>Sui Network</span>
           </div>
-          <div className="flex items-center gap-4">
-            <a href="https://justbeep.it" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
-              Docs
+          <div className="flex items-center gap-3">
+            <a href="https://justbeep.it" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
+              Documentation
             </a>
-            <a href="https://sui.io" target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">
+            <a href="https://sui.io" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
               Explorer
             </a>
           </div>

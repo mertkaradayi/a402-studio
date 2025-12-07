@@ -280,33 +280,25 @@ export function PaymentWidget() {
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="p-6 border-b border-border bg-card/40 backdrop-blur-sm">
+            <div className="px-6 py-4 border-b border-border">
                 <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/20">
-                            <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
-                            </svg>
-                        </div>
-                        <div>
-                            <h1 className="text-xl font-bold tracking-tight">
-                                {paymentMode === "simulation" ? "Payment Simulation" : "Beep Payments"}
-                            </h1>
-                            <p className="text-sm text-muted-foreground">
-                                {paymentMode === "simulation" ? "See the full payment flow" : "Pay with USDC on Sui"}
-                            </p>
-                        </div>
+                    <div>
+                        <h1 className="text-lg font-semibold tracking-tight">
+                            {paymentMode === "simulation" ? "Sandbox" : "Payment"}
+                        </h1>
+                        <p className="text-sm text-muted-foreground">
+                            {paymentMode === "simulation" ? "Simulated payment flow" : "USDC on Sui"}
+                        </p>
                     </div>
-
                     <div className={cn(
-                        "px-3 py-1.5 rounded-full text-xs font-medium border",
+                        "px-2.5 py-1 rounded text-xs font-medium",
                         paymentMode === "simulation"
-                            ? "bg-primary/10 text-primary border-primary/30"
+                            ? "bg-muted text-muted-foreground"
                             : network === "sui-mainnet"
-                                ? "bg-neon-green/10 text-neon-green border-neon-green/30"
-                                : "bg-neon-yellow/10 text-neon-yellow border-neon-yellow/30"
+                                ? "bg-neon-green/10 text-neon-green"
+                                : "bg-neon-yellow/10 text-neon-yellow"
                     )}>
-                        {paymentMode === "simulation" ? "Demo Mode" : network === "sui-mainnet" ? "Mainnet" : "Testnet"}
+                        {paymentMode === "simulation" ? "Demo" : network === "sui-mainnet" ? "Mainnet" : "Testnet"}
                     </div>
                 </div>
             </div>
@@ -346,43 +338,38 @@ export function PaymentWidget() {
                             <Button
                                 onClick={runSimulation}
                                 size="lg"
-                                className="w-full text-lg font-bold shadow-lg shadow-primary/20"
+                                className="w-full font-medium"
                             >
-                                🎮 Run Simulation
+                                Run Simulation
                             </Button>
                         ) : (
                             <Button
                                 onClick={handleStartPayment}
                                 size="lg"
-                                className="w-full text-lg font-bold bg-neon-green hover:bg-neon-green/90 text-black shadow-lg shadow-neon-green/20"
+                                className="w-full font-medium bg-neon-green hover:bg-neon-green/90 text-black"
                             >
-                                💳 Start Live Payment
+                                Start Payment
                             </Button>
                         )}
 
                         <p className="text-xs text-muted-foreground text-center">
                             {paymentMode === "simulation"
-                                ? "Watch the full payment flow with mock data"
-                                : "You'll be able to pay via QR code or connect your wallet"}
+                                ? "Simulates the complete payment lifecycle"
+                                : "Pay via QR code or wallet connection"}
                         </p>
                     </div>
                 )}
 
                 {step === "simulating" && (
-                    <div className="max-w-md mx-auto space-y-6 text-center">
-                        <div className="w-20 h-20 mx-auto bg-primary/10 rounded-full flex items-center justify-center border border-primary/30 animate-pulse">
-                            <svg className="w-10 h-10 text-primary animate-spin" fill="none" viewBox="0 0 24 24">
-                                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-                            </svg>
-                        </div>
+                    <div className="max-w-md mx-auto space-y-6 text-center py-8">
+                        <div className="w-12 h-12 mx-auto border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                         <div>
-                            <h2 className="text-xl font-bold mb-2">Simulation Running...</h2>
+                            <h2 className="text-lg font-semibold mb-1">Processing</h2>
                             <p className="text-muted-foreground text-sm">
-                                Watch the step indicator above and the data panel on the right
+                                Watch the step indicator above
                             </p>
                         </div>
-                        <Button variant="ghost" onClick={handleReset} className="text-muted-foreground">
+                        <Button variant="ghost" size="sm" onClick={handleReset} className="text-muted-foreground">
                             Cancel
                         </Button>
                     </div>
@@ -412,23 +399,21 @@ export function PaymentWidget() {
                 )}
 
                 {step === "complete" && paymentResult && (
-                    <div className="max-w-md mx-auto space-y-6 text-center">
-                        <div className="w-24 h-24 mx-auto bg-gradient-to-br from-neon-green/20 to-primary/20 rounded-full flex items-center justify-center animate-in zoom-in duration-300">
-                            <div className="w-16 h-16 bg-neon-green/20 rounded-full flex items-center justify-center border border-neon-green/30">
-                                <svg className="w-8 h-8 text-neon-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
-                                </svg>
-                            </div>
+                    <div className="max-w-md mx-auto space-y-6 text-center py-8">
+                        <div className="w-14 h-14 mx-auto bg-neon-green/10 rounded-full flex items-center justify-center border border-neon-green/20">
+                            <svg className="w-7 h-7 text-neon-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                            </svg>
                         </div>
 
                         <div>
-                            <h2 className="text-2xl font-bold mb-2">
-                                {paymentMode === "simulation" ? "Simulation Complete!" : "Payment Complete!"}
+                            <h2 className="text-lg font-semibold mb-1">
+                                {paymentMode === "simulation" ? "Simulation Complete" : "Payment Complete"}
                             </h2>
-                            <p className="text-muted-foreground">
+                            <p className="text-muted-foreground text-sm">
                                 {paymentMode === "simulation"
-                                    ? "All 5 steps completed successfully"
-                                    : "Your payment has been verified by Beep"}
+                                    ? "All steps completed"
+                                    : "Verified by Beep"}
                             </p>
                         </div>
 
