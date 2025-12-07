@@ -55,6 +55,7 @@ export function StreamingWidget() {
   const [selectedPreset, setSelectedPreset] = useState(0);
   const [customAssets, setCustomAssets] = useState<StreamingAsset[]>([]);
   const [useCustom, setUseCustom] = useState(false);
+  const merchantLookupRan = useRef(false);
 
   // Simulation interval ref
   const simulationRef = useRef<NodeJS.Timeout | null>(null);
@@ -76,6 +77,42 @@ export function StreamingWidget() {
   useEffect(() => {
     accumulatedRef.current = parseFloat(currentSession?.totalAccumulated || "0");
   }, [currentSession?.id]);
+
+  // Resolve merchantId from backend when switching to live mode
+  useEffect(() => {
+    if (isSimulationMode || merchantLookupRan.current) return;
+
+    let cancelled = false;
+    merchantLookupRan.current = true;
+
+    const fetchMerchant = async () => {
+      try {
+        const response = await fetch(`${API_BASE}/streaming/merchant`);
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data?.error || "Failed to resolve merchant");
+        }
+
+        if (!cancelled && data?.merchantId) {
+          setMerchantId(data.merchantId);
+          addLog("info", `Using merchant ${data.merchantId} for live streaming`);
+        }
+      } catch (err) {
+        const message = err instanceof Error ? err.message : "Unknown error";
+        if (!cancelled) {
+          setError(message);
+          addLog("error", `Merchant lookup failed: ${message}`);
+        }
+      }
+    };
+
+    fetchMerchant();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isSimulationMode, addLog, setError]);
 
   // Run simulation charges when active - FAST ticking for demo feel
   useEffect(() => {
@@ -167,17 +204,21 @@ export function StreamingWidget() {
               assetId: a.assetId,
               quantity: a.quantity,
               name: a.name,
+              description: a.description,
+              unitPrice: a.unitPrice,
             })),
-            payingMerchantId: currentSession.payingMerchantId,
+            payingMerchantId: currentSession.payingMerchantId || undefined,
           }),
         });
 
-        if (!response.ok) throw new Error("Failed to issue payment");
-
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || "Failed to issue payment");
         setInvoiceId(data.invoiceId);
         addReferenceKey(data.referenceKey);
         addLog("success", `Invoice created: ${data.invoiceId}`);
+        if (data.merchantId) {
+          addLog("info", `Charging merchant ${data.merchantId}`);
+        }
         setSessionState("configuring");
       } catch (err) {
         const message = err instanceof Error ? err.message : "Unknown error";
@@ -205,7 +246,8 @@ export function StreamingWidget() {
           body: JSON.stringify({ invoiceId: currentSession.invoiceId }),
         });
 
-        if (!response.ok) throw new Error("Failed to start stream");
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || "Failed to start stream");
 
         startStreaming();
         addLog("success", "Stream started");
@@ -235,7 +277,8 @@ export function StreamingWidget() {
           body: JSON.stringify({ invoiceId: currentSession.invoiceId }),
         });
 
-        if (!response.ok) throw new Error("Failed to pause stream");
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || "Failed to pause stream");
 
         pauseStreaming();
         addLog("warning", "Stream paused");
@@ -271,9 +314,8 @@ export function StreamingWidget() {
           body: JSON.stringify({ invoiceId: currentSession.invoiceId }),
         });
 
-        if (!response.ok) throw new Error("Failed to stop stream");
-
-        const data = await response.json();
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data?.error || "Failed to stop stream");
         stopStreaming(data.referenceKeys);
         addLog("success", `Stream stopped. Reference keys: ${data.referenceKeys.length}`);
         saveToHistory();
@@ -458,9 +500,9 @@ export function StreamingWidget() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-[#0c0c12]/60 backdrop-blur-sm">
+    <div className="h-full flex flex-col bg-[#0d0f14]/70 backdrop-blur-sm">
       {/* Header */}
-      <div className="px-6 py-5 border-b border-white/10 bg-white/5 backdrop-blur">
+      <div className="px-6 py-5 border-b border-white/12 bg-white/5 backdrop-blur">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold tracking-tight text-white">Streaming Payments</h1>

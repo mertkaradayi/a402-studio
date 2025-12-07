@@ -1,4 +1,5 @@
 import { Router, Request, Response } from "express";
+import { SuiClient, getFullnodeUrl } from "@mysten/sui/client";
 import type { A402Challenge, A402Receipt } from "@shared/types";
 
 export const a402Router = Router();
@@ -8,6 +9,34 @@ const usedNonces = new Set<string>();
 
 // Simulated merchant vault address
 const MERCHANT_VAULT = "0x1234567890abcdef1234567890abcdef12345678";
+
+const SUI_USDC_DECIMALS = 6;
+
+function getSuiNetwork(chain?: string): "mainnet" | "testnet" {
+  return chain === "sui-mainnet" || chain === "mainnet" ? "mainnet" : "testnet";
+}
+
+function getSuiExplorerUrl(digest: string, chain?: string) {
+  const network = getSuiNetwork(chain);
+  return `https://suiexplorer.com/txblock/${digest}?network=${network}`;
+}
+
+function normalizeOwner(owner: unknown): string {
+  if (typeof owner === "string") return owner.toLowerCase();
+  if (owner && typeof owner === "object") {
+    const record = owner as Record<string, unknown>;
+    if (typeof record.AddressOwner === "string") return record.AddressOwner.toLowerCase();
+    if (typeof record.ObjectOwner === "string") return record.ObjectOwner.toLowerCase();
+  }
+  return "";
+}
+
+function parseAmountToBaseUnits(amount?: string | number | null): bigint | null {
+  if (amount === null || amount === undefined) return null;
+  const numeric = typeof amount === "string" ? Number(amount) : amount;
+  if (!Number.isFinite(numeric)) return null;
+  return BigInt(Math.round(numeric * 10 ** SUI_USDC_DECIMALS));
+}
 
 /**
  * POST /a402/challenge
@@ -420,6 +449,7 @@ a402Router.post("/verify-onchain", async (req: Request, res: Response) => {
   const signature = typeof receipt?.signature === "string" ? receipt.signature : "";
   const txHash = typeof receipt?.txHash === "string" ? receipt.txHash : "";
   const isBeepWidgetSignature = signature.startsWith("beep_widget_");
+  const chain = receipt?.chain || challenge?.chain || "sui-testnet";
 
   console.log("[verify-onchain] Request received:", {
     receipt: receipt ? {
@@ -447,6 +477,17 @@ a402Router.post("/verify-onchain", async (req: Request, res: Response) => {
 
   const errors: string[] = [];
   const checks: Record<string, boolean> = {};
+  let onchainDetails: {
+    found: boolean;
+    status?: string;
+    sender?: string;
+    checkpoint?: string | null;
+    timestampMs?: number | null;
+    explorerUrl?: string;
+    recipientMatch?: boolean;
+    amountMatch?: boolean;
+    error?: string;
+  } | null = null;
 
   // Basic field validation
   checks.hasRequiredFields = !!(
@@ -481,7 +522,6 @@ a402Router.post("/verify-onchain", async (req: Request, res: Response) => {
   }
 
   // Verify transaction exists on Sui (would need Sui RPC call)
-  // For now, we'll trust the transaction hash format
   const isSuiDigest = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(txHash);
   checks.validTxFormat = isSuiDigest || txHash.startsWith("0x") || isBeepWidgetSignature;
 
@@ -501,6 +541,78 @@ a402Router.post("/verify-onchain", async (req: Request, res: Response) => {
     signature.startsWith("beep_verified_") ||
     isSuiDigest;
 
+  // On-chain verification using Sui RPC (Mysten fullnode)
+  if (txHash && !isBeepWidgetSignature) {
+    const explorerUrl = getSuiExplorerUrl(txHash, chain);
+    try {
+      const client = new SuiClient({ url: getFullnodeUrl(getSuiNetwork(chain)) });
+      const tx = await client.getTransactionBlock({
+        digest: txHash,
+        options: {
+          showEffects: true,
+          showBalanceChanges: true,
+          showInput: true,
+        },
+      });
+
+      const status = tx.effects?.status?.status;
+      const success = status === "success";
+      checks.onchainFound = true;
+      checks.onchainStatusSuccess = success;
+
+      const balanceChanges = tx.balanceChanges || [];
+      const expectedRecipient = (challenge?.recipient || receipt.merchant || "").toLowerCase();
+      const expectedAmountBase = parseAmountToBaseUnits(challenge?.amount || receipt.amount);
+      let recipientMatch: boolean | undefined;
+      let amountMatch: boolean | undefined;
+
+      if (expectedRecipient) {
+        const recipientChange = balanceChanges.find((bc) => normalizeOwner((bc as any).owner) === expectedRecipient);
+        if (recipientChange) {
+          const amount = BigInt((recipientChange as any).amount || 0);
+          recipientMatch = true;
+          amountMatch = expectedAmountBase === null ? undefined : amount >= expectedAmountBase;
+          checks.onchainRecipientMatch = true;
+          if (expectedAmountBase !== null) {
+            const hasAmount = amount >= expectedAmountBase;
+            checks.onchainAmountMatch = hasAmount;
+            amountMatch = hasAmount;
+            if (!hasAmount) errors.push("On-chain amount is below expected value");
+          }
+        } else {
+          checks.onchainRecipientMatch = false;
+          errors.push("On-chain transfer does not include the expected recipient");
+          recipientMatch = false;
+        }
+      }
+
+      if (!success) {
+        errors.push("On-chain transaction status is not successful");
+      }
+
+      onchainDetails = {
+        found: true,
+        status,
+        sender: (tx.transaction as any)?.data?.sender,
+        checkpoint: tx.checkpoint || null,
+        timestampMs: tx.timestampMs ? Number(tx.timestampMs) : null,
+        explorerUrl,
+        recipientMatch,
+        amountMatch,
+      };
+    } catch (error) {
+      checks.onchainFound = false;
+      const message = error instanceof Error ? error.message : String(error);
+      errors.push("Transaction not found on chain");
+      onchainDetails = {
+        found: false,
+        explorerUrl,
+        error: message,
+      };
+      console.error("[verify-onchain] Sui RPC error:", message);
+    }
+  }
+
   const valid = Object.values(checks).every(Boolean) && errors.length === 0;
 
   console.log("[verify-onchain] Verification result:", {
@@ -515,5 +627,7 @@ a402Router.post("/verify-onchain", async (req: Request, res: Response) => {
     checks,
     errors: errors.length > 0 ? errors : undefined,
     receipt_id: receipt.id,
+    explorerUrl: onchainDetails?.explorerUrl ?? (txHash ? getSuiExplorerUrl(txHash, chain) : undefined),
+    onchain: onchainDetails ?? undefined,
   });
 });

@@ -5,9 +5,9 @@
 @layer base {
   :root {
     /* Beep aesthetic defaults (dark-first) */
-    --background: 240 8% 6%;
-    /* ~#0b0c10 */
-    --foreground: 210 14% 96%;
+    --background: 240 6% 6%;
+    /* ~#0c0d11 */
+    --foreground: 210 12% 95%;
     /* soft off-white */
 
     --card: 240 8% 10%;
@@ -16,70 +16,70 @@
     --popover: 240 8% 12%;
     --popover-foreground: 210 14% 96%;
 
-    --primary: 303 100% 56%;
-    /* neon pink, slightly warmer */
-    --primary-foreground: 0 0% 8%;
+    --primary: 303 90% 52%;
+    /* restrained pink */
+    --primary-foreground: 0 0% 6%;
 
-    --secondary: 189 92% 52%;
-    /* neon cyan for alt actions */
+    --secondary: 189 78% 52%;
+    /* muted cyan */
     --secondary-foreground: 0 0% 8%;
 
-    --muted: 240 7% 15%;
-    --muted-foreground: 240 6% 68%;
+    --muted: 240 6% 14%;
+    --muted-foreground: 240 5% 66%;
 
-    --accent: 117 96% 64%;
-    /* neon green accent */
+    --accent: 117 78% 58%;
+    /* softened green */
     --accent-foreground: 0 0% 8%;
 
-    --destructive: 0 82% 60%;
+    --destructive: 0 76% 56%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 7% 20%;
-    --input: 240 7% 20%;
-    --ring: 189 98% 55%;
-    /* neon cyan ring */
+    --border: 240 6% 18%;
+    --input: 240 6% 18%;
+    --ring: 189 85% 52%;
+    /* moderated cyan ring */
 
     --radius: 0.75rem;
 
     /* Custom Palette Variables for direct usage */
-    --neon-pink: 303 100% 56%;
-    --neon-green: 117 96% 64%;
-    --neon-yellow: 53 99% 52%;
+    --neon-pink: 303 90% 52%;
+    --neon-green: 117 82% 58%;
+    --neon-yellow: 53 96% 50%;
     /* #FEE102 */
-    --neon-cyan: 189 98% 55%;
+    --neon-cyan: 189 85% 52%;
     --pure-black: 0 0% 0%;
     --dark-gray: 240 4% 22%;
   }
 
   .dark {
     /* Deeper dark mode */
-    --background: 240 10% 4%;
-    --foreground: 210 16% 97%;
+    --background: 240 8% 4%;
+    --foreground: 210 14% 96%;
 
-    --card: 240 9% 8%;
-    --card-foreground: 210 16% 97%;
+    --card: 240 7% 8%;
+    --card-foreground: 210 14% 96%;
 
-    --popover: 240 9% 9%;
-    --popover-foreground: 210 16% 97%;
+    --popover: 240 7% 9%;
+    --popover-foreground: 210 14% 96%;
 
-    --primary: 303 100% 56%;
-    --primary-foreground: 0 0% 8%;
+    --primary: 303 90% 52%;
+    --primary-foreground: 0 0% 6%;
 
-    --secondary: 189 92% 52%;
+    --secondary: 189 78% 52%;
     --secondary-foreground: 0 0% 8%;
 
-    --muted: 240 7% 13%;
-    --muted-foreground: 240 6% 68%;
+    --muted: 240 6% 12%;
+    --muted-foreground: 240 5% 66%;
 
-    --accent: 117 96% 64%;
+    --accent: 117 78% 58%;
     --accent-foreground: 0 0% 8%;
 
-    --destructive: 0 72% 46%;
+    --destructive: 0 70% 44%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 6% 18%;
-    --input: 240 6% 18%;
-    --ring: 189 98% 55%;
+    --border: 240 5% 16%;
+    --input: 240 5% 16%;
+    --ring: 189 85% 52%;
   }
 }
 
@@ -222,9 +222,9 @@
 
   /* Ambient gradient utility */
   .ambient {
-    background-image: radial-gradient(circle at 18% 18%, rgba(115, 255, 109, 0.08), transparent 26%),
-      radial-gradient(circle at 82% 12%, rgba(255, 0, 237, 0.12), transparent 28%),
-      radial-gradient(circle at 50% 80%, rgba(4, 217, 255, 0.08), transparent 24%);
+    background-image: radial-gradient(circle at 18% 18%, rgba(115, 255, 109, 0.045), transparent 26%),
+      radial-gradient(circle at 82% 12%, rgba(255, 0, 237, 0.06), transparent 28%),
+      radial-gradient(circle at 50% 80%, rgba(4, 217, 255, 0.045), transparent 24%);
   }
 
   /* Soft divider */

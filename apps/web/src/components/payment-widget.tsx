@@ -3,6 +3,7 @@
 import { useState, useCallback, useEffect } from "react";
 import { CheckoutWidget } from "@beep-it/checkout-widget";
 import { useFlowStore } from "@/stores/flow-store";
+import { getSuiExplorerUrl, verifyOnChainPayment, type SuiTransactionDetails } from "@/lib/sui-client";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -19,6 +20,29 @@ interface PaymentResult {
     paymentUrl?: string;
     paid?: boolean;
     status?: string;
+    txHash?: string;
+    explorerUrl?: string;
+    onChainVerified?: boolean;
+    onChainMessage?: string;
+}
+
+type OnChainState =
+    | { status: "idle" }
+    | { status: "pending"; txHash: string; explorerUrl?: string }
+    | { status: "verified"; txHash: string; explorerUrl?: string; message?: string }
+    | { status: "failed"; txHash?: string; explorerUrl?: string; message?: string }
+    | { status: "skipped"; message: string };
+
+function extractTxHash(data: PaymentResult): string | undefined {
+    const candidates = [
+        data.txHash,
+        (data as Record<string, string | undefined>).transactionHash,
+        (data as Record<string, string | undefined>).transactionDigest,
+        (data as Record<string, string | undefined>).digest,
+        (data as Record<string, string | undefined>).tx,
+    ];
+
+    return candidates.find((value) => typeof value === "string" && value.length > 0);
 }
 
 // Mock data generator for simulation
@@ -97,6 +121,8 @@ export function PaymentWidget() {
 
     const [step, setStep] = useState<"config" | "paying" | "simulating" | "complete" | "error">("config");
     const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
+    const [onChainState, setOnChainState] = useState<OnChainState>({ status: "idle" });
+    const [onChainDetails, setOnChainDetails] = useState<SuiTransactionDetails | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSimulating, setIsSimulating] = useState(false);
     const [simulatedError, setSimulatedError] = useState<ErrorScenario | null>(null);
@@ -111,6 +137,8 @@ export function PaymentWidget() {
         if (isSimulating) return;
 
         setIsSimulating(true);
+        setOnChainState({ status: "idle" });
+        setOnChainDetails(null);
         resetFlow();
         resetSteps();
         setStep("simulating");
@@ -176,6 +204,8 @@ export function PaymentWidget() {
             return;
         }
 
+        setOnChainState({ status: "idle" });
+        setOnChainDetails(null);
         resetFlow();
         resetSteps();
 
@@ -197,6 +227,65 @@ export function PaymentWidget() {
         setStep("paying");
     }, [amount, network, addDebugLog, setChallenge, resetFlow, resetSteps, setCurrentStep, setStepData]);
 
+    const runOnChainVerification = useCallback(async (txHash?: string, destinationAddress?: string, finalAmount?: string) => {
+        if (!txHash) {
+            setOnChainState({ status: "skipped", message: "No transaction hash was returned by the payment gateway." });
+            return;
+        }
+
+        const explorerUrl = getSuiExplorerUrl(txHash, network);
+        setOnChainState({ status: "pending", txHash, explorerUrl });
+        addDebugLog("info", "🔍 Verifying payment on-chain via Sui RPC...");
+
+        try {
+            const result = await verifyOnChainPayment({
+                txHash,
+                chain: network,
+                expectedAmount: finalAmount ? Number(finalAmount) : undefined,
+                expectedRecipient: destinationAddress,
+            });
+
+            setOnChainDetails(result.transaction);
+            setOnChainState({
+                status: result.verified ? "verified" : "failed",
+                txHash,
+                explorerUrl: result.explorerUrl,
+                message: result.message,
+            });
+
+            setStepData(3, {
+                title: "Verification Complete",
+                data: {
+                    valid: true,
+                    method: "beep_api",
+                    verifiedAt: new Date().toISOString(),
+                    onChain: {
+                        verified: result.verified,
+                        status: result.status,
+                        message: result.message,
+                        checks: result.checks,
+                        explorerUrl: result.explorerUrl,
+                    },
+                },
+                timestamp: Date.now(),
+            });
+
+            setPaymentResult((prev) => prev ? {
+                ...prev,
+                txHash,
+                explorerUrl: result.explorerUrl,
+                onChainVerified: result.verified,
+                onChainMessage: result.message,
+            } : prev);
+
+            addDebugLog(result.verified ? "success" : "warning", result.verified ? "✅ On-chain verification succeeded" : "⚠️ On-chain verification failed");
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "On-chain verification failed";
+            setOnChainState({ status: "failed", txHash, explorerUrl, message });
+            addDebugLog("error", `On-chain verification error: ${message}`);
+        }
+    }, [network, addDebugLog, setStepData, setPaymentResult]);
+
     const handlePaymentSuccess = useCallback((paymentData: PaymentResult) => {
         setCurrentStep(1);
         setStepData(1, {
@@ -211,6 +300,8 @@ export function PaymentWidget() {
             const referenceKey = paymentData.referenceKey || "";
             const destinationAddress = paymentData.destinationAddress || "";
             const finalAmount = String(paymentData.totalAmount || amount);
+            const txHash = extractTxHash(paymentData);
+            const explorerUrl = txHash ? getSuiExplorerUrl(txHash, network) : undefined;
 
             const receipt = {
                 id: `rcpt_${Date.now()}`,
@@ -220,7 +311,7 @@ export function PaymentWidget() {
                 amount: finalAmount,
                 asset: "USDC",
                 chain: network,
-                txHash: `beep_widget_${referenceKey}`,
+                txHash: txHash || `beep_widget_${referenceKey}`,
                 signature: `beep_widget_verified_${referenceKey}`,
                 issuedAt: Math.floor(Date.now() / 1000),
             };
@@ -237,6 +328,7 @@ export function PaymentWidget() {
                     timestamp: Date.now(),
                 });
                 addDebugLog("success", "✅ Payment verified by Beep");
+                void runOnChainVerification(txHash, destinationAddress, finalAmount);
 
                 setTimeout(() => {
                     setCurrentStep(4);
@@ -246,12 +338,16 @@ export function PaymentWidget() {
                         timestamp: Date.now(),
                     });
 
-                    setPaymentResult(paymentData);
+                    setPaymentResult({
+                        ...paymentData,
+                        txHash,
+                        explorerUrl,
+                    });
                     setStep("complete");
                 }, 500);
             }, 500);
         }, 500);
-    }, [amount, network, addDebugLog, setReceipt, setCurrentStep, setStepData]);
+    }, [amount, network, addDebugLog, setReceipt, setCurrentStep, setStepData, runOnChainVerification]);
 
     const handlePaymentError = useCallback((err: unknown) => {
         const message = err instanceof Error ? err.message :
@@ -266,6 +362,8 @@ export function PaymentWidget() {
     const handleReset = useCallback(() => {
         setStep("config");
         setPaymentResult(null);
+        setOnChainState({ status: "idle" });
+        setOnChainDetails(null);
         setError(null);
         setIsSimulating(false);
         setSimulatedError(null);
@@ -487,6 +585,66 @@ export function PaymentWidget() {
                                 </div>
                             </CardContent>
                         </Card>
+
+                        {onChainState.status !== "idle" && (
+                            <Card className="text-left border-white/15 bg-[#0f0f12]/80">
+                                <CardContent className="p-4 space-y-3 text-sm">
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <div className="text-xs uppercase text-muted-foreground">On-chain verification</div>
+                                            <div className="font-medium">
+                                                {onChainState.status === "pending" && "Checking on Sui..."}
+                                                {onChainState.status === "verified" && "Confirmed on-chain"}
+                                                {onChainState.status === "failed" && "Verification issue"}
+                                                {onChainState.status === "skipped" && "Skipped (no tx hash)"}
+                                            </div>
+                                        </div>
+                                        <span
+                                            className={cn(
+                                                "inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium",
+                                                onChainState.status === "verified"
+                                                    ? "bg-neon-green/10 text-neon-green"
+                                                    : onChainState.status === "pending"
+                                                        ? "bg-neon-yellow/10 text-neon-yellow"
+                                                        : "bg-destructive/10 text-destructive"
+                                            )}
+                                        >
+                                            {onChainState.status.toUpperCase()}
+                                        </span>
+                                    </div>
+
+                                    {paymentResult.txHash && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-muted-foreground">Tx Hash</span>
+                                            <span className="font-mono text-xs truncate max-w-[200px]" title={paymentResult.txHash}>
+                                                {paymentResult.txHash.slice(0, 14)}...
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {onChainDetails?.sender && (
+                                        <div className="flex justify-between items-center">
+                                            <span className="text-muted-foreground">Sender</span>
+                                            <span className="font-mono text-xs truncate max-w-[200px]" title={onChainDetails.sender}>
+                                                {onChainDetails.sender.slice(0, 14)}...
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {"message" in onChainState && onChainState.message && (
+                                        <p className="text-muted-foreground">{onChainState.message}</p>
+                                    )}
+
+                                    {"explorerUrl" in onChainState && onChainState.explorerUrl && (
+                                        <Button asChild variant="link" className="px-0 text-primary">
+                                            <a href={onChainState.explorerUrl} target="_blank" rel="noreferrer">
+                                                View on Sui Explorer
+                                            </a>
+                                        </Button>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        )}
 
                         <Button onClick={handleReset} variant="secondary" className="w-full">
                             {paymentMode === "simulation" ? "Run Again" : "Make Another Payment"}

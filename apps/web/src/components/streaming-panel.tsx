@@ -84,7 +84,7 @@ export function StreamingPanel() {
   ];
 
   return (
-    <div className="h-full flex flex-col bg-[#0c0c12]/60 backdrop-blur-sm">
+    <div className="h-full flex flex-col bg-[#0d0f14]/70 backdrop-blur-sm">
       {/* Tab Navigation */}
       <div className="px-4 pt-4 pb-2 border-b border-white/10 bg-white/5">
         <div className="flex gap-1">

@@ -65,9 +65,9 @@ export function FlowPlayground() {
   };
 
   return (
-    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#0b0b0d] text-foreground">
-      <div className="pointer-events-none absolute inset-0 -z-20 ambient opacity-80" />
-      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_18%,rgba(115,255,109,0.08),transparent_24%),radial-gradient(circle_at_82%_10%,rgba(255,0,237,0.12),transparent_28%),radial-gradient(circle_at_50%_82%,rgba(4,217,255,0.08),transparent_24%)]" />
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#0b0c10] text-foreground">
+      <div className="pointer-events-none absolute inset-0 -z-20 ambient opacity-50" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_18%,rgba(115,255,109,0.05),transparent_24%),radial-gradient(circle_at_82%_10%,rgba(255,0,237,0.07),transparent_28%),radial-gradient(circle_at_50%_82%,rgba(4,217,255,0.05),transparent_24%)]" />
       {/* Header */}
       <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0f0f12]/80 backdrop-blur-lg">
         <div className="h-16 px-6 flex items-center justify-between">

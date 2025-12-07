@@ -75,7 +75,7 @@ export function ResultsPanel() {
     }, [receipt?.txHash]);
 
     return (
-        <div className="h-full flex flex-col bg-[#0c0c12]/60 border-l border-white/8 backdrop-blur-sm">
+        <div className="h-full flex flex-col bg-[#0d0f14]/70 border-l border-white/10 backdrop-blur-sm">
             {/* Header */}
             <div className="p-4 border-b border-white/10 bg-white/5 backdrop-blur-sm sticky top-0">
                 <h2 className="text-sm font-semibold tracking-tight flex items-center gap-2 text-white">
