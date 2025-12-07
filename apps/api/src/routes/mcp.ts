@@ -70,6 +70,42 @@ async function initializeSession() {
   }
 }
 
+// Helper to parse SSE-wrapped JSON
+function parseSSEResponse(data: any) {
+  let responseData = data;
+
+  // Handle SSE-wrapped response
+  if (typeof responseData === "string" && responseData.includes("event: message") && responseData.includes("data: ")) {
+    try {
+      const dataLine = responseData.split("\n").find(line => line.startsWith("data: "));
+      if (dataLine) {
+        const jsonStr = dataLine.replace("data: ", "").trim();
+        responseData = JSON.parse(jsonStr);
+      }
+    } catch (e) {
+      console.error("[MCP] Failed to parse SSE response:", e);
+    }
+  }
+
+  // Handle nested SSE in 'tools' or other properties
+  if (responseData && typeof responseData.tools === "string" && responseData.tools.startsWith("event:")) {
+    try {
+      const dataLine = responseData.tools.split("\n").find((line: string) => line.startsWith("data: "));
+      if (dataLine) {
+        const jsonStr = dataLine.replace("data: ", "").trim();
+        const parsed = JSON.parse(jsonStr);
+        if (parsed.result) responseData = { ...responseData, ...parsed.result };
+        else responseData = { ...responseData, ...parsed };
+        delete responseData.tools;
+      }
+    } catch (e) {
+      console.error("[MCP] Failed to parse SSE tools property:", e);
+    }
+  }
+
+  return responseData;
+}
+
 // Helper to retry calls if session fails (400/401)
 async function withSessionRetry<T>(
   action: (sid: string) => Promise<{ data: any; sessionId: string; status: number }>,
@@ -104,38 +140,7 @@ async function callToolsList(sessionId: string) {
     );
 
     const newSessionId = (resp.headers["mcp-session-id"] as string) || sid;
-
-    // Handle SSE-wrapped response (Beep MCP returns "event: message\ndata: {...}")
-    let responseData = resp.data;
-    if (typeof responseData === "string" && responseData.includes("event: message") && responseData.includes("data: ")) {
-      try {
-        const dataLine = responseData.split("\n").find(line => line.startsWith("data: "));
-        if (dataLine) {
-          const jsonStr = dataLine.replace("data: ", "").trim();
-          responseData = JSON.parse(jsonStr);
-        }
-      } catch (e) {
-        console.error("[MCP] Failed to parse SSE response:", e);
-      }
-    }
-
-    // Also handle if the top-level 'tools' property is the string (as seen in user curl)
-    if (responseData && typeof responseData.tools === "string" && responseData.tools.startsWith("event:")) {
-      try {
-        const dataLine = responseData.tools.split("\n").find((line: string) => line.startsWith("data: "));
-        if (dataLine) {
-          const jsonStr = dataLine.replace("data: ", "").trim();
-          const parsed = JSON.parse(jsonStr);
-          // Merge parsed result back into responseData
-          if (parsed.result) responseData = { ...responseData, ...parsed.result };
-          else responseData = { ...responseData, ...parsed };
-          // Remove the raw string field
-          delete responseData.tools;
-        }
-      } catch (e) {
-        console.error("[MCP] Failed to parse SSE tools property:", e);
-      }
-    }
+    const responseData = parseSSEResponse(resp.data);
 
     return { data: responseData, sessionId: newSessionId, status: resp.status };
   }, sessionId);
@@ -159,7 +164,9 @@ async function callTool(sessionId: string, name: string, parameters: Record<stri
     );
 
     const newSessionId = (resp.headers["mcp-session-id"] as string) || sid;
-    return { data: resp.data, sessionId: newSessionId, status: resp.status };
+    const responseData = parseSSEResponse(resp.data);
+
+    return { data: responseData, sessionId: newSessionId, status: resp.status };
   }, sessionId);
 }
 

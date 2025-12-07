@@ -52,42 +52,42 @@
   }
 
   .dark {
-    /* Dark Mode (High Contrast, Cyberpunk-ish) */
-    --background: 0 0% 0%;
-    /* #000000 - Pure Black */
-    --foreground: 0 0% 100%;
-    /* #FFFFFF */
+    /* Dark Mode (Modern Deep Zinc, Clean & Minimal) */
+    --background: 240 10% 3.9%;
+    /* #09090b - Deep zinc/black, softer than #000 */
+    --foreground: 0 0% 98%;
+    /* #FAFAFA */
 
-    --card: 240 4% 22%;
-    /* #36363B - Dark Grey */
-    --card-foreground: 0 0% 100%;
+    --card: 240 10% 3.9%;
+    /* Match background for flat modern look */
+    --card-foreground: 0 0% 98%;
 
-    --popover: 240 4% 22%;
-    --popover-foreground: 0 0% 100%;
+    --popover: 240 10% 3.9%;
+    --popover-foreground: 0 0% 98%;
 
     --primary: 303 100% 50%;
-    /* #FF00ED */
+    /* Keep Neon Pink for Brand */
     --primary-foreground: 0 0% 100%;
 
-    --secondary: 117 100% 71%;
-    /* #73FF6D */
-    --secondary-foreground: 240 4% 22%;
+    --secondary: 240 3.7% 15.9%;
+    /* Subtle dark grey for secondary UI elements */
+    --secondary-foreground: 0 0% 98%;
 
-    --muted: 240 4% 16%;
+    --muted: 240 3.7% 15.9%;
     --muted-foreground: 240 5% 64.9%;
 
-    --accent: 189 98% 51%;
-    /* #04D9FF */
-    --accent-foreground: 240 4% 22%;
+    --accent: 240 3.7% 15.9%;
+    /* Subtle accent for hover states */
+    --accent-foreground: 0 0% 98%;
 
     --destructive: 0 62.8% 30.6%;
     --destructive-foreground: 0 0% 98%;
 
-    --border: 240 4% 22%;
-    /* Dark Grey Borders */
-    --input: 240 4% 22%;
-    --ring: 117 100% 71%;
-    /* Neon Green Ring for visibility in dark */
+    --border: 240 3.7% 15.9%;
+    /* Subtle borders */
+    --input: 240 3.7% 15.9%;
+    --ring: 240 4.9% 83.9%;
+    /* Neutral ring focus */
   }
 }
 

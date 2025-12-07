@@ -430,7 +430,7 @@ export function MCPWidget() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-sm font-semibold">Available Tools</h2>
+          <h2 className="text-sm font-semibold text-foreground">Available Tools</h2>
           <p className="text-xs text-muted-foreground">Fetched live from MCP</p>
         </div>
         {sessionId && (
@@ -441,13 +441,13 @@ export function MCPWidget() {
       </div>
 
       {toolsLoading && (
-        <Card className="border-dashed">
+        <Card className="border-dashed border-border/50 bg-muted/30">
           <CardContent className="p-4 text-xs text-muted-foreground">Loading tools…</CardContent>
         </Card>
       )}
 
       {toolsError && (
-        <Card className="border-destructive/40 bg-destructive/5">
+        <Card className="border-destructive/20 bg-destructive/5">
           <CardContent className="p-4 text-xs text-destructive">{toolsError}</CardContent>
         </Card>
       )}
@@ -458,14 +458,14 @@ export function MCPWidget() {
             key={tool.name}
             onClick={() => handleSelectTool(tool)}
             className={cn(
-              "w-full p-3 rounded-lg border text-left transition-all",
-              "hover:border-primary/50 hover:bg-muted/40"
+              "w-full p-3 rounded-lg border border-border/50 bg-card hover:bg-muted/50 text-left transition-all",
+              "hover:border-primary/20"
             )}
           >
             <div className="flex items-start justify-between gap-2">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="font-mono text-sm font-medium">{tool.name}</span>
+                  <span className="font-mono text-sm font-medium text-foreground">{tool.name}</span>
                   {tool.category && tool.category !== "unknown" && (
                     <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium uppercase border", categoryBadge(tool.category))}>
                       {tool.category}
@@ -474,7 +474,7 @@ export function MCPWidget() {
                 </div>
                 <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{tool.description}</p>
               </div>
-              <svg className="w-4 h-4 text-muted-foreground flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-muted-foreground/50 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </div>
@@ -488,13 +488,13 @@ export function MCPWidget() {
     if (!selectedTool) return null;
 
     return (
-      <div className="space-y-4">
+      <div className="space-y-6">
         <div className="flex items-center justify-between">
           <button
             onClick={handleReset}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors"
+            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Back
@@ -506,8 +506,8 @@ export function MCPWidget() {
           )}
         </div>
 
-        <Card>
-          <CardHeader className="pb-2">
+        <Card className="border-border/50 bg-card shadow-sm">
+          <CardHeader className="pb-3 pt-4 px-4">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-mono">{selectedTool.name}</CardTitle>
               {selectedTool.category && selectedTool.category !== "unknown" && (
@@ -518,31 +518,33 @@ export function MCPWidget() {
             </div>
           </CardHeader>
           {selectedTool.description && (
-            <CardContent>
-              <p className="text-sm text-muted-foreground">{selectedTool.description}</p>
+            <CardContent className="px-4 pb-4 pt-0">
+              <p className="text-sm text-muted-foreground leading-relaxed">{selectedTool.description}</p>
             </CardContent>
           )}
         </Card>
 
         {selectedTool.parameters.length > 0 && (
-          <div className="space-y-3">
-            <h3 className="text-sm font-medium">Parameters</h3>
-            {selectedTool.parameters.map((param) => (
-              <div key={param.name} className="space-y-1">
-                <label className="text-xs font-medium flex items-center gap-2">
-                  <span className="font-mono">{param.name}</span>
-                  <span className="text-muted-foreground">({param.type})</span>
-                  {param.required && <span className="text-destructive">*</span>}
-                </label>
-                <Input
-                  value={paramValues[param.name] || ""}
-                  onChange={(e) => setParamValues({ ...paramValues, [param.name]: e.target.value })}
-                  placeholder={param.description}
-                  className="font-mono text-sm"
-                />
-                <p className="text-[10px] text-muted-foreground">{param.description}</p>
-              </div>
-            ))}
+          <div className="space-y-4">
+            <h3 className="text-sm font-medium text-foreground px-1">Parameters</h3>
+            <div className="space-y-3">
+              {selectedTool.parameters.map((param) => (
+                <div key={param.name} className="space-y-1.5">
+                  <label className="text-xs font-medium flex items-center gap-2 text-muted-foreground">
+                    <span className="font-mono text-foreground">{param.name}</span>
+                    <span>({param.type})</span>
+                    {param.required && <span className="text-primary">*</span>}
+                  </label>
+                  <Input
+                    value={paramValues[param.name] || ""}
+                    onChange={(e) => setParamValues({ ...paramValues, [param.name]: e.target.value })}
+                    placeholder={param.description}
+                    className="font-mono text-sm bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/10 transition-all"
+                  />
+                  {param.description && <p className="text-[10px] text-muted-foreground px-1">{param.description}</p>}
+                </div>
+              ))}
+            </div>
           </div>
         )}
 
@@ -553,11 +555,13 @@ export function MCPWidget() {
         )}
 
         {currentInvocation?.status === "invoking" && (
-          <div className="text-center py-3 text-sm text-muted-foreground">Invoking…</div>
+          <div className="flex items-center justify-center py-4 text-sm text-muted-foreground animate-pulse">
+            Invoking...
+          </div>
         )}
 
         {currentInvocation?.status === "awaiting_payment" && currentInvocation.paymentRequired && (
-          <Card className="border-amber-400/50 bg-amber-400/5">
+          <Card className="border-amber-500/20 bg-amber-500/5">
             <CardHeader className="pb-2">
               <CardTitle className="text-sm text-amber-500 flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -569,7 +573,7 @@ export function MCPWidget() {
             <CardContent className="space-y-3 text-sm">
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Amount</span>
-                <span className="font-mono">{currentInvocation.paymentRequired.amount || "?"}</span>
+                <span className="font-mono font-medium">{currentInvocation.paymentRequired.amount || "?"}</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-muted-foreground">Reference</span>
@@ -578,18 +582,18 @@ export function MCPWidget() {
                 </span>
               </div>
 
-              <div className="flex gap-2">
+              <div className="flex gap-2 pt-2">
                 {currentInvocation.paymentRequired.paymentUrl && (
                   <Button
-                    variant="secondary"
-                    className="flex-1"
+                    variant="outline"
+                    className="flex-1 border-primary/20 hover:border-primary/50 hover:bg-primary/5"
                     onClick={() => window.open(currentInvocation.paymentRequired!.paymentUrl, "_blank")}
                   >
-                    Open Checkout
+                    Pay
                   </Button>
                 )}
                 <Button className="flex-1" onClick={handleRetryWithReference}>
-                  Retry with Reference
+                  Check Status
                 </Button>
               </div>
             </CardContent>
@@ -597,25 +601,47 @@ export function MCPWidget() {
         )}
 
         {currentInvocation?.status === "complete" && !!currentInvocation.result && (
-          <Card className="border-neon-green/30 bg-neon-green/5">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-neon-green flex items-center gap-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <Card className="border-primary/20 bg-primary/5">
+            <CardHeader className="pb-2 px-4 pt-4">
+              <CardTitle className="text-sm text-foreground flex items-center gap-2">
+                <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                 </svg>
-                Tool Executed
+                Result
               </CardTitle>
             </CardHeader>
-            <CardContent>
-              <pre className="text-xs font-mono bg-muted/50 p-2 rounded overflow-x-auto whitespace-pre-wrap break-all">
-                {JSON.stringify(currentInvocation.result, null, 2)}
+            <CardContent className="px-4 pb-4">
+              <pre className="text-xs font-mono bg-background/50 border border-border/50 p-3 rounded-md overflow-x-auto whitespace-pre-wrap break-all text-muted-foreground">
+                {(() => {
+                  try {
+                    // Check if deep nested JSON string exists in standard MCP content format
+                    // Structure: { content: [ { type: 'text', text: 'JSON_STRING' } ] }
+                    const resultAny = currentInvocation.result as any;
+                    const content = resultAny?.content;
+                    if (Array.isArray(content) && content[0]?.type === 'text' && typeof content[0]?.text === 'string') {
+                      const innerText = content[0].text.trim();
+                      if (innerText.startsWith('{') || innerText.startsWith('[')) {
+                        try {
+                          const parsedInner = JSON.parse(innerText);
+                          // Return the parsed inner JSON to be stringified beautifully
+                          return JSON.stringify(parsedInner, null, 2);
+                        } catch {
+                          // invalid inner json, just return full result
+                        }
+                      }
+                    }
+                    return JSON.stringify(currentInvocation.result, null, 2);
+                  } catch {
+                    return JSON.stringify(currentInvocation.result, null, 2);
+                  }
+                })()}
               </pre>
             </CardContent>
           </Card>
         )}
 
         {currentInvocation?.status === "error" && (
-          <Card className="border-destructive/30 bg-destructive/5">
+          <Card className="border-destructive/20 bg-destructive/5">
             <CardContent className="pt-4">
               <p className="text-sm text-destructive">{currentInvocation.error}</p>
             </CardContent>
@@ -626,26 +652,26 @@ export function MCPWidget() {
   };
 
   return (
-    <div className="h-full flex flex-col">
-      <div className="px-6 py-4 border-b border-border">
+    <div className="h-full flex flex-col bg-background/50">
+      <div className="px-6 py-4 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold tracking-tight">MCP Inspector</h1>
+            <h1 className="text-lg font-semibold tracking-tight text-foreground">MCP Inspector</h1>
             <p className="text-sm text-muted-foreground">{isSimulationMode ? "Simulated tool execution" : "Live MCP connection"}</p>
           </div>
           <div className={cn(
-            "px-2.5 py-1 rounded text-xs font-medium",
+            "px-2.5 py-1 rounded text-xs font-medium transition-colors",
             isSimulationMode
               ? "bg-muted text-muted-foreground"
-              : "bg-neon-green/10 text-neon-green"
+              : "bg-primary/10 text-primary border border-primary/20"
           )}>
             {isSimulationMode ? "Simulation" : "Live"}
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6">
-        <div className="max-w-md mx-auto">
+      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+        <div className="max-w-xl mx-auto">
           {selectedTool ? renderInvocationForm() : renderToolList()}
         </div>
       </div>
