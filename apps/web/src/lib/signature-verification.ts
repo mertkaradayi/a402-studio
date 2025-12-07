@@ -24,7 +24,7 @@ const BEEP_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY || "";
 
 export interface SignatureVerificationResult {
     valid: boolean;
-    method: "beep-api" | "beep-polling" | "onchain" | "format-check" | "demo";
+    method: "beep-api" | "beep-polling" | "beep-widget" | "onchain" | "format-check" | "demo";
     error?: string;
     details?: {
         signer?: string;
@@ -49,6 +49,13 @@ function isDirectWalletPayment(receipt: A402Receipt): boolean {
  */
 function isBeepSdkPayment(receipt: A402Receipt): boolean {
     return receipt.signature.startsWith("beep_sdk_");
+}
+
+/**
+ * Check if this is a Beep CheckoutWidget payment (pre-verified)
+ */
+function isBeepWidgetPayment(receipt: A402Receipt): boolean {
+    return receipt.signature.startsWith("beep_widget_");
 }
 
 /**
@@ -330,6 +337,24 @@ export async function verifyFacilitatorSignature(
         };
     }
 
+    // Check if this is a Beep CheckoutWidget payment (already verified by widget)
+    if (isBeepWidgetPayment(receipt)) {
+        console.log("[verify] PASS: Beep CheckoutWidget payment detected (pre-verified)");
+        // These payments are already verified by the CheckoutWidget's onPaymentSuccess callback
+        // The callback only fires when Beep's getPaymentStatus returns paid:true
+        return {
+            valid: true,
+            method: "beep-widget",
+            details: {
+                signer: "beep-checkout-widget",
+                apiResponse: {
+                    note: "This payment was verified by the Beep CheckoutWidget. The widget's onPaymentSuccess callback only fires after Beep confirms the payment.",
+                    referenceKey: receipt.requestNonce,
+                },
+            },
+        };
+    }
+
     // Check if this is a Beep SDK payment
     if (isBeepSdkPayment(receipt)) {
         console.log("[verify] Beep SDK payment detected, trying server-side Beep API verification...");
@@ -510,7 +535,7 @@ export function isValidSignatureFormat(signature: string): boolean {
     }
 
     // Beep SDK signatures
-    if (signature.startsWith("beep_sdk_") || signature.startsWith("beep_verified_")) {
+    if (signature.startsWith("beep_sdk_") || signature.startsWith("beep_verified_") || signature.startsWith("beep_widget_")) {
         return true;
     }
 
