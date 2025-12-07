@@ -85,6 +85,17 @@ export interface DebugLogEntry {
   timestamp: number;
 }
 
+export interface APICall {
+  id: string;
+  timestamp: number;
+  method: "POST" | "GET";
+  endpoint: string;
+  request?: Record<string, unknown>;
+  response?: Record<string, unknown>;
+  status: "pending" | "success" | "error";
+  duration?: number;
+}
+
 interface FlowState {
   // App mode
   currentMode: AppMode;
@@ -113,6 +124,9 @@ interface FlowState {
   // Debug logs
   debugLogs: DebugLogEntry[];
 
+  // API call tracking
+  apiCalls: APICall[];
+
   // Inspector mode - pasted content
   inspectorInput: string;
   inspectorType: "challenge" | "receipt";
@@ -140,6 +154,11 @@ interface FlowState {
   // Actions - Debug
   addDebugLog: (type: DebugLogEntry["type"], message: string) => void;
   clearDebugLogs: () => void;
+
+  // Actions - API Calls
+  addApiCall: (call: Omit<APICall, "id" | "timestamp">) => string;
+  updateApiCall: (id: string, updates: Partial<APICall>) => void;
+  clearApiCalls: () => void;
 
   // Actions - Inspector
   setInspectorInput: (input: string) => void;
@@ -171,6 +190,7 @@ export const useFlowStore = create<FlowState>((set) => ({
   verificationResult: null,
   history: [],
   debugLogs: [],
+  apiCalls: [],
   inspectorInput: "",
   inspectorType: "receipt",
   isLoading: false,
@@ -226,6 +246,26 @@ export const useFlowStore = create<FlowState>((set) => ({
 
   clearDebugLogs: () => set({ debugLogs: [] }),
 
+  addApiCall: (call) => {
+    const id = `api_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
+    set((state) => ({
+      apiCalls: [
+        ...state.apiCalls,
+        { ...call, id, timestamp: Date.now() },
+      ],
+    }));
+    return id;
+  },
+
+  updateApiCall: (id, updates) =>
+    set((state) => ({
+      apiCalls: state.apiCalls.map((call) =>
+        call.id === id ? { ...call, ...updates } : call
+      ),
+    })),
+
+  clearApiCalls: () => set({ apiCalls: [] }),
+
   setInspectorInput: (input) => set({ inspectorInput: input }),
 
   setInspectorType: (type) => set({ inspectorType: type }),
@@ -242,6 +282,7 @@ export const useFlowStore = create<FlowState>((set) => ({
       rawReceipt: null,
       verificationResult: null,
       debugLogs: [],
+      apiCalls: [],
       inspectorInput: "",
       isLoading: false,
     }),

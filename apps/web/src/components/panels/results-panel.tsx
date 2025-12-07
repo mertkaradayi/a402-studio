@@ -2,9 +2,12 @@
 
 import { useFlowStore } from "@/stores/flow-store";
 import { cn } from "@/lib/utils";
+import { CodeSnippets } from "../code-snippets";
+import { APIInspector } from "../api-inspector";
+import { ReferenceKeyLookup } from "../reference-key-lookup";
 
 export function ResultsPanel() {
-    const { receipt, challenge, debugLogs } = useFlowStore();
+    const { receipt, challenge, debugLogs, apiCalls } = useFlowStore();
 
     // Get recent logs (last 10)
     const recentLogs = debugLogs.slice(-10).reverse();
@@ -102,11 +105,41 @@ export function ResultsPanel() {
                     </div>
                 )}
 
+                {/* Code Snippets - Show after payment */}
+                {receipt && (
+                    <div className="mt-4">
+                        <h3 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                            </svg>
+                            Integration Code
+                        </h3>
+                        <CodeSnippets
+                            amount={receipt.amount}
+                            description="Your Product"
+                            referenceKey={receipt.requestNonce}
+                        />
+                    </div>
+                )}
+
+                {/* API Inspector - Show when there are API calls */}
+                {apiCalls.length > 0 && (
+                    <div className="mt-4">
+                        <h3 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                            </svg>
+                            API Responses
+                        </h3>
+                        <APIInspector calls={apiCalls} />
+                    </div>
+                )}
+
                 {/* Debug Logs */}
                 <div className="mt-4">
                     <h3 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
                         <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         Activity Log
                     </h3>
@@ -140,6 +173,17 @@ export function ResultsPanel() {
                         )}
                     </div>
                 </div>
+
+                {/* Reference Key Lookup - Developer Tool */}
+                <div className="mt-4">
+                    <h3 className="text-xs font-medium text-muted-foreground mb-2 flex items-center gap-1.5">
+                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                        Developer Tools
+                    </h3>
+                    <ReferenceKeyLookup />
+                </div>
             </div>
 
             {/* Footer */}
@@ -151,3 +195,4 @@ export function ResultsPanel() {
         </div>
     );
 }
+
