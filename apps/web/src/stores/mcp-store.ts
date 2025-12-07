@@ -52,6 +52,9 @@ export interface MCPInvocation {
     expiresAt: string;
     raw?: unknown;
   };
+  requestHeaders?: Record<string, string>;
+  requestBody?: Record<string, unknown>;
+  curlCommand?: string;
   result?: unknown;
   raw?: unknown;
   error?: string;
@@ -103,7 +106,7 @@ interface MCPStore {
   clearSelectedTool: () => void;
 
   // Actions - Invocation
-  startInvocation: (toolName: string, parameters: Record<string, unknown>) => void;
+  startInvocation: (toolName: string, parameters: Record<string, unknown>, requestBody?: Record<string, unknown>, curlCommand?: string) => void;
   setInvocationStatus: (status: MCPInvocation["status"]) => void;
   setPaymentRequired: (payment: MCPInvocation["paymentRequired"]) => void;
   setInvocationResult: (result: unknown) => void;
@@ -159,11 +162,13 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
     set({ selectedTool: null });
   },
 
-  startInvocation: (toolName, parameters) => {
+  startInvocation: (toolName: string, parameters: Record<string, unknown>, requestBody?: Record<string, unknown>, curlCommand?: string) => {
     const invocation: MCPInvocation = {
       id: `inv_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
       toolName,
       parameters,
+      requestBody,
+      curlCommand,
       status: "invoking",
       startedAt: Date.now(),
     };
