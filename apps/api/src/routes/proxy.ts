@@ -3,6 +3,9 @@ import axios, { AxiosError, Method } from "axios";
 
 export const proxyRouter = Router();
 
+const BEEP_API_URL = process.env.BEEP_API_URL || "https://api.justbeep.it";
+const BEEP_PUBLISHABLE_KEY = process.env.BEEP_PUBLISHABLE_KEY;
+
 interface ProxyRequest {
     url: string;
     method?: string;
@@ -106,6 +109,68 @@ proxyRouter.post("/", async (req: Request, res: Response) => {
         return res.status(500).json({
             error: axiosError.message || "Proxy request failed",
             code: axiosError.code,
+        });
+    }
+});
+
+/**
+ * GET /proxy/beep/payment-status/:referenceKey
+ * Proxies Beep payment status check with proper authentication
+ * This allows frontend to check payment status without CORS issues
+ */
+proxyRouter.get("/beep/payment-status/:referenceKey", async (req: Request, res: Response) => {
+    const { referenceKey } = req.params;
+    // Allow publishable key from query param or header (for flexibility)
+    const publishableKey = req.query.pk as string || req.headers["x-beep-pk"] as string || BEEP_PUBLISHABLE_KEY;
+
+    if (!referenceKey) {
+        return res.status(400).json({
+            error: "Missing referenceKey parameter",
+        });
+    }
+
+    if (!publishableKey) {
+        return res.status(400).json({
+            error: "Missing publishable key - set BEEP_PUBLISHABLE_KEY env var or pass pk query param",
+        });
+    }
+
+    const url = `${BEEP_API_URL}/v1/widget/payment-status/${referenceKey}`;
+    console.log(`[proxy/beep] Fetching payment status for: ${referenceKey}`);
+
+    try {
+        const response = await axios({
+            url,
+            method: "GET",
+            headers: {
+                "Authorization": `Bearer ${publishableKey}`,
+                "Content-Type": "application/json",
+                "X-Beep-Client": "beep-sdk",
+            },
+            timeout: 15000,
+        });
+
+        console.log(`[proxy/beep] Response status: ${response.status}`, response.data);
+
+        res.json({
+            success: true,
+            referenceKey,
+            ...response.data,
+        });
+    } catch (err) {
+        const axiosError = err as AxiosError;
+        console.error(`[proxy/beep] Error:`, axiosError.response?.data || axiosError.message);
+
+        if (axiosError.response) {
+            return res.status(axiosError.response.status).json({
+                error: "Beep API error",
+                status: axiosError.response.status,
+                data: axiosError.response.data,
+            });
+        }
+
+        return res.status(500).json({
+            error: axiosError.message || "Failed to fetch payment status",
         });
     }
 });

@@ -139,6 +139,273 @@ a402Router.post("/simulate-payment", async (req: Request, res: Response) => {
 });
 
 /**
+ * POST /a402/verify-beep
+ * Verify a Beep payment using the proper a402 verification flow
+ * 
+ * Per Beep docs, verification works by:
+ * 1. POST /v1/payments/request with paymentReference param - if paid, returns 200 with receipt
+ * 2. Fallback to invoice list search
+ */
+a402Router.post("/verify-beep", async (req: Request, res: Response) => {
+  const { receipt, challenge } = req.body as {
+    receipt: A402Receipt;
+    challenge?: { amount: string; recipient: string; nonce: string };
+  };
+
+  console.log("[verify-beep] Request received:", {
+    receipt: receipt ? {
+      id: receipt.id,
+      requestNonce: receipt.requestNonce,
+      txHash: receipt.txHash,
+      amount: receipt.amount,
+      merchant: receipt.merchant,
+    } : null,
+    hasChallenge: !!challenge,
+  });
+
+  if (!receipt || !receipt.requestNonce) {
+    return res.status(400).json({
+      valid: false,
+      error: "Receipt with requestNonce required"
+    });
+  }
+
+  const BEEP_SECRET_KEY = process.env.BEEP_SECRET_KEY;
+  const BEEP_PUBLISHABLE_KEY = process.env.BEEP_PUBLISHABLE_KEY;
+
+  if (!BEEP_SECRET_KEY && !BEEP_PUBLISHABLE_KEY) {
+    console.error("[verify-beep] No Beep API keys configured");
+    return res.status(500).json({
+      valid: false,
+      error: "Beep verification not configured - need BEEP_SECRET_KEY or BEEP_PUBLISHABLE_KEY"
+    });
+  }
+
+  const BEEP_API_URL = process.env.BEEP_API_URL || "https://api.justbeep.it";
+  const referenceKey = receipt.requestNonce;
+  const apiKey = BEEP_SECRET_KEY || BEEP_PUBLISHABLE_KEY;
+
+  // === Method 1: POST /v1/payments/request with paymentReference ===
+  // Per Beep docs: "Poll: re-call the same route with paymentReference: <referenceKey> until 200 with { receipt, txSignature }"
+  console.log(`[verify-beep] Checking payment status via POST /v1/payments/request with paymentReference...`);
+  try {
+    const paymentResponse = await fetch(`${BEEP_API_URL}/v1/payments/request`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+        "x-beep-client": "beep-sdk",
+      },
+      body: JSON.stringify({
+        paymentReference: referenceKey,
+      }),
+    });
+
+    console.log(`[verify-beep] /v1/payments/request response: ${paymentResponse.status}`);
+
+    if (paymentResponse.ok) {
+      const paymentData = await paymentResponse.json();
+      console.log("[verify-beep] Payment request success:", paymentData);
+
+      // If we get a 200 response with receipt/txSignature, payment is confirmed
+      if (paymentData.receipt || paymentData.txSignature || paymentData.paid === true) {
+        return res.json({
+          valid: true,
+          method: "beep-payment-request",
+          details: {
+            ...paymentData,
+            endpoint: "/v1/payments/request",
+            referenceKey,
+            verifiedAt: new Date().toISOString(),
+          },
+        });
+      }
+
+      // If we get 200 but payment is not complete yet (e.g., still pending)
+      if (paymentData.status === "issued" || paymentData.paid === false) {
+        console.log("[verify-beep] Payment session exists but not paid yet");
+        // Don't return error - continue to fallback methods
+      }
+    } else if (paymentResponse.status === 402) {
+      // 402 means invoice exists but not paid - this is expected for unpaid invoices
+      const data = await paymentResponse.json();
+      console.log("[verify-beep] 402 response (unpaid):", data);
+      // Continue to fallback
+    } else {
+      const errorText = await paymentResponse.text();
+      console.log("[verify-beep] Payment request error:", paymentResponse.status, errorText);
+    }
+  } catch (error) {
+    console.log("[verify-beep] /v1/payments/request error:", error instanceof Error ? error.message : error);
+  }
+
+  // === Method 2: GET /v1/widget/payment-status/:referenceKey ===
+  // Widget status endpoint used by the checkout widget (correct path from Beep API)
+  console.log(`[verify-beep] Trying GET /v1/widget/payment-status/${referenceKey}...`);
+  try {
+    const statusResponse = await fetch(`${BEEP_API_URL}/v1/widget/payment-status/${referenceKey}`, {
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "x-beep-client": "beep-sdk",
+      },
+    });
+
+    console.log(`[verify-beep] /v1/widget/payment-status response: ${statusResponse.status}`);
+
+    if (statusResponse.ok) {
+      const statusData = await statusResponse.json();
+      console.log("[verify-beep] Widget payment status:", statusData);
+
+      const isPaid = statusData.status === "paid" || statusData.paid === true;
+      if (isPaid) {
+        return res.json({
+          valid: true,
+          method: "beep-widget-status",
+          details: {
+            ...statusData,
+            endpoint: "/v1/widget/payment-status",
+            referenceKey,
+            verifiedAt: new Date().toISOString(),
+          },
+        });
+      } else {
+        console.log(`[verify-beep] Widget status: paid=${statusData.paid}, status=${statusData.status}`);
+      }
+    }
+  } catch (error) {
+    console.log("[verify-beep] /v1/widget/payment-status error:", error instanceof Error ? error.message : error);
+  }
+
+  // === Method 3: Fallback to invoice list search ===
+  console.log("[verify-beep] Falling back to invoice list search...");
+  try {
+    const invoicesResponse = await fetch(`${BEEP_API_URL}/v1/invoices`, {
+      headers: {
+        "Authorization": `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+      },
+    });
+
+    if (!invoicesResponse.ok) {
+      const errorText = await invoicesResponse.text();
+      console.error("[verify-beep] Failed to fetch invoices:", invoicesResponse.status, errorText);
+      return res.json({
+        valid: false,
+        method: "beep-api",
+        error: `Beep API error: ${invoicesResponse.status}`,
+      });
+    }
+
+    const invoices = await invoicesResponse.json() as Array<{
+      uuid: string;
+      status: string;
+      amount: string;
+      amountDecimal: string;
+      token: string;
+      chain: string;
+      createdAt: string;
+      updatedAt: string;
+      referenceKey?: string;
+      paymentReference?: string;
+      [key: string]: unknown;
+    }>;
+
+    console.log("[verify-beep] Found", invoices.length, "invoices");
+
+    // Log all paid invoices to understand the structure
+    const allPaidInvoices = invoices.filter(inv => inv.status === "paid");
+    console.log("[verify-beep] Total paid invoices:", allPaidInvoices.length);
+    if (allPaidInvoices.length > 0) {
+      console.log("[verify-beep] Sample paid invoice structure:", JSON.stringify(allPaidInvoices[0], null, 2));
+    }
+
+    // Method 3a: Try to find by referenceKey exact match
+    const matchByRef = invoices.find(inv =>
+      inv.status === "paid" &&
+      (inv.referenceKey === referenceKey || inv.paymentReference === referenceKey || inv.uuid === referenceKey)
+    );
+
+    if (matchByRef) {
+      console.log("[verify-beep] SUCCESS - Found paid invoice by referenceKey:", matchByRef.uuid);
+      return res.json({
+        valid: true,
+        method: "beep-invoice-match",
+        details: {
+          invoiceId: matchByRef.uuid,
+          status: matchByRef.status,
+          amount: matchByRef.amountDecimal,
+          token: matchByRef.token,
+          chain: matchByRef.chain,
+          matchType: "referenceKey",
+          endpoint: "/v1/invoices",
+          verifiedAt: new Date().toISOString(),
+        },
+      });
+    }
+
+    // Method 3b: Find by amount + recency
+    const twoHoursAgo = new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+
+    const paidInvoices = invoices.filter(inv => {
+      const isPaid = inv.status === "paid";
+      const isRecent = inv.updatedAt > twoHoursAgo;
+
+      let amountMatches = true;
+      if (challenge?.amount) {
+        const expectedAmount = BigInt(Math.floor(parseFloat(challenge.amount) * 1_000_000));
+        const invoiceAmount = BigInt(inv.amount || "0");
+        amountMatches = expectedAmount === invoiceAmount;
+      }
+
+      return isPaid && isRecent && amountMatches;
+    });
+
+    console.log("[verify-beep] Found", paidInvoices.length, "matching paid invoices by amount+time");
+
+    if (paidInvoices.length > 0) {
+      const matchedInvoice = paidInvoices[0];
+      console.log("[verify-beep] SUCCESS - Found paid invoice:", matchedInvoice.uuid);
+
+      return res.json({
+        valid: true,
+        method: "beep-invoice-match",
+        details: {
+          invoiceId: matchedInvoice.uuid,
+          status: matchedInvoice.status,
+          amount: matchedInvoice.amountDecimal,
+          token: matchedInvoice.token,
+          chain: matchedInvoice.chain,
+          endpoint: "/v1/invoices",
+          verifiedAt: new Date().toISOString(),
+        },
+      });
+    }
+
+    // No matching paid invoice found
+    console.log("[verify-beep] No matching paid invoice found");
+    return res.json({
+      valid: false,
+      method: "beep-api",
+      error: "No matching paid invoice found in Beep",
+      details: {
+        totalInvoices: invoices.length,
+        paidInvoices: allPaidInvoices.length,
+        referenceKeySearched: referenceKey,
+        searchedMethods: ["/v1/payments/request", "/v1/widget/payment-status", "/v1/invoices"],
+      },
+    });
+
+  } catch (error) {
+    console.error("[verify-beep] Error:", error);
+    return res.json({
+      valid: false,
+      method: "beep-api",
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
+});
+
+/**
  * POST /a402/verify-onchain
  * Verify a receipt by checking the transaction on Sui blockchain
  * This is used for direct wallet payments that bypass Beep's payment flow

@@ -7,6 +7,7 @@ import {
   validateReceiptSchema,
   verifyReceiptAgainstChallenge,
 } from "@/lib/validators";
+import { verifyReceiptViaBeepServerAPI } from "@/lib/signature-verification";
 import { cn } from "@/lib/utils";
 import { SchemaValidationDisplay } from "../shared/schema-validation-display";
 import { VerificationDisplay } from "../shared/verification-display";
@@ -32,6 +33,15 @@ export function InspectorMode() {
   const [verifyChallenge, setVerifyChallenge] = useState("");
   const [verifyReceipt, setVerifyReceipt] = useState("");
   const [verificationResult, setVerificationResult] = useState<ReturnType<typeof verifyReceiptAgainstChallenge> | null>(null);
+
+  // Beep API verification state
+  const [beepVerifying, setBeepVerifying] = useState(false);
+  const [beepVerifyResult, setBeepVerifyResult] = useState<{
+    valid: boolean;
+    method: string;
+    error?: string;
+    details?: Record<string, unknown>;
+  } | null>(null);
 
   const handleInspectChallenge = () => {
     setChallengeValidation(null);
@@ -140,6 +150,44 @@ export function InspectorMode() {
     }
   };
 
+  // Verify receipt via Beep API
+  const handleVerifyWithBeepAPI = async () => {
+    if (!parsedReceipt) {
+      addDebugLog("warning", "Please inspect a receipt first");
+      return;
+    }
+
+    setBeepVerifying(true);
+    setBeepVerifyResult(null);
+    addDebugLog("info", "🔐 Verifying receipt via Beep API...");
+
+    try {
+      const result = await verifyReceiptViaBeepServerAPI(parsedReceipt);
+      setBeepVerifyResult({
+        valid: result.valid,
+        method: result.method,
+        error: result.error,
+        details: result.details?.apiResponse as Record<string, unknown> | undefined,
+      });
+
+      if (result.valid) {
+        addDebugLog("success", `✅ Receipt verified via ${result.method}`);
+      } else {
+        addDebugLog("warning", `Verification failed: ${result.error || "Unknown error"}`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setBeepVerifyResult({
+        valid: false,
+        method: "beep-api",
+        error: message,
+      });
+      addDebugLog("error", `Beep API error: ${message}`);
+    } finally {
+      setBeepVerifying(false);
+    }
+  };
+
   const TABS: { id: InspectorTab; label: string }[] = [
     { id: "challenge", label: "Challenge" },
     { id: "receipt", label: "Receipt" },
@@ -235,6 +283,22 @@ export function InspectorMode() {
               >
                 Inspect Receipt
               </button>
+              {parsedReceipt && (
+                <button
+                  onClick={handleVerifyWithBeepAPI}
+                  disabled={beepVerifying}
+                  className="w-full px-4 py-2.5 bg-emerald-500 text-black font-semibold rounded-md hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
+                >
+                  {beepVerifying ? (
+                    <>
+                      <div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" />
+                      Verifying...
+                    </>
+                  ) : (
+                    "🔐 Verify with Beep API"
+                  )}
+                </button>
+              )}
             </div>
           )}
 
@@ -344,6 +408,40 @@ export function InspectorMode() {
                       { label: "signature", value: parsedReceipt.signature },
                     ]}
                   />
+                )}
+                {beepVerifyResult && (
+                  <div className={cn(
+                    "p-4 rounded-lg border",
+                    beepVerifyResult.valid
+                      ? "bg-emerald-500/10 border-emerald-500/30"
+                      : "bg-red-500/10 border-red-500/30"
+                  )}>
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className={beepVerifyResult.valid ? "text-emerald-400" : "text-red-400"}>
+                        {beepVerifyResult.valid ? "✅" : "❌"}
+                      </span>
+                      <span className={cn(
+                        "font-semibold",
+                        beepVerifyResult.valid ? "text-emerald-400" : "text-red-400"
+                      )}>
+                        {beepVerifyResult.valid ? "Verified via Beep API" : "Verification Failed"}
+                      </span>
+                    </div>
+                    <div className="text-xs text-muted-foreground space-y-1">
+                      <p><span className="text-white">Method:</span> {beepVerifyResult.method}</p>
+                      {beepVerifyResult.error && (
+                        <p><span className="text-red-400">Error:</span> {beepVerifyResult.error}</p>
+                      )}
+                      {beepVerifyResult.details && (
+                        <details className="mt-2">
+                          <summary className="cursor-pointer text-neon-cyan">API Response Details</summary>
+                          <pre className="mt-2 p-2 bg-black rounded text-[10px] overflow-auto max-h-32">
+                            {JSON.stringify(beepVerifyResult.details, null, 2)}
+                          </pre>
+                        </details>
+                      )}
+                    </div>
+                  </div>
                 )}
               </div>
             )}

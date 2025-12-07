@@ -1,3 +1,4 @@
+import "dotenv/config";
 import express from "express";
 import cors from "cors";
 import { a402Router } from "./routes/a402.js";
@@ -11,6 +12,9 @@ const allowedOrigins = process.env.CORS_ORIGINS
   ? process.env.CORS_ORIGINS.split(",").map(o => o.trim())
   : ["http://localhost:3000"];
 
+// Always allow ngrok domains for development
+const isNgrokOrigin = (origin: string) => origin?.includes(".ngrok") || origin?.includes(".ngrok-free.app");
+
 console.log("[CORS] Allowed origins:", allowedOrigins);
 
 app.use(
@@ -22,6 +26,11 @@ app.use(
       }
       // Allow if origin matches or wildcard is set
       if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
+        return callback(null, true);
+      }
+      // Always allow ngrok domains for development testing
+      if (isNgrokOrigin(origin)) {
+        console.log(`[CORS] Allowing ngrok origin: ${origin}`);
         return callback(null, true);
       }
       // Reject by passing false (not throwing error)

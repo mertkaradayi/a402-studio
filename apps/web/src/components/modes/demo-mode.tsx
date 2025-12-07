@@ -9,8 +9,10 @@ import { CenterPanel } from "../panels/center-panel";
 import { CodeExportPanel } from "../panels/code-export-panel";
 import { BeepCheckout, useBeepPayment, type BeepPaymentReceipt } from "@/components/beep/beep-checkout";
 import { SdkIntegrationPanel } from "@/components/beep/sdk-integration-panel";
+import { CheckoutWidgetPanel } from "@/components/beep/checkout-widget-panel";
+import { verifyReceiptViaBeepServerAPI } from "@/lib/signature-verification";
 
-type DemoSubMode = "learning" | "beep" | "sdk";
+type DemoSubMode = "learning" | "beep" | "sdk" | "widget";
 
 const PRESETS = Object.entries(PRESET_SCENARIOS).filter(([key]) => key !== "custom") as [PresetScenario, typeof PRESET_SCENARIOS[PresetScenario]][];
 
@@ -36,6 +38,12 @@ export function DemoMode() {
   const [isWalletPaymentLoading, setIsWalletPaymentLoading] = useState(false);
   const [demoSubMode, setDemoSubMode] = useState<DemoSubMode>("learning");
   const [showBeepModal, setShowBeepModal] = useState(false);
+  const [beepLiveVerification, setBeepLiveVerification] = useState<{
+    valid: boolean;
+    method: string;
+    error?: string;
+    isVerifying: boolean;
+  } | null>(null);
 
   // Beep payment hook (for demo simulation)
   const { initiatePayment, isProcessing: isBeepPaymentLoading, error: beepError } = useBeepPayment();
@@ -151,6 +159,7 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
       return;
     }
 
+    setBeepLiveVerification(null); // Reset previous verification
     addDebugLog("info", "🚀 Opening Beep Checkout Widget...");
     addDebugLog("info", `Amount: ${BEEP_LIVE_CONFIG.amount} ${BEEP_LIVE_CONFIG.currency}`);
     addDebugLog("info", `Recipient: ${account.address.slice(0, 20)}...`);
@@ -158,7 +167,7 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
   };
 
   // Handler for when real Beep payment completes
-  const handleRealBeepPaymentComplete = (beepReceipt: BeepPaymentReceipt) => {
+  const handleRealBeepPaymentComplete = async (beepReceipt: BeepPaymentReceipt) => {
     const network = process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "sui-mainnet" : "sui-testnet";
     const nonce = `beep-live-${Date.now()}`;
 
@@ -192,7 +201,40 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
     setReceipt(receipt, JSON.stringify(receipt, null, 2));
 
     setShowBeepModal(false);
-    addDebugLog("success", "Receipt stored! Check the Verify tab.");
+
+    // Verify receipt via Beep API
+    addDebugLog("info", "🔐 Verifying receipt via Beep API...");
+    setBeepLiveVerification({ valid: false, method: "", isVerifying: true });
+
+    try {
+      const verification = await verifyReceiptViaBeepServerAPI(receipt, {
+        amount: beepReceipt.amount,
+        recipient: beepReceipt.merchant,
+        nonce: nonce,
+      });
+
+      setBeepLiveVerification({
+        valid: verification.valid,
+        method: verification.method,
+        error: verification.error,
+        isVerifying: false,
+      });
+
+      if (verification.valid) {
+        addDebugLog("success", `✅ Receipt verified via ${verification.method}`);
+      } else {
+        addDebugLog("warning", `Verification: ${verification.error || "Could not verify"}`);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : "Unknown error";
+      setBeepLiveVerification({
+        valid: false,
+        method: "beep-api",
+        error: message,
+        isVerifying: false,
+      });
+      addDebugLog("error", `Verification error: ${message}`);
+    }
   };
 
   // Handler when Beep payment fails
@@ -273,7 +315,9 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
                 ? "Learn the a402 flow with simulated data"
                 : demoSubMode === "beep"
                   ? "Real USDC payments via Beep"
-                  : "Production-ready SDK integration"}
+                  : demoSubMode === "widget"
+                    ? "Official Beep CheckoutWidget"
+                    : "Production-ready SDK integration"}
             </p>
           </div>
 
@@ -312,6 +356,17 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
             >
               🔧 SDK
             </button>
+            <button
+              onClick={() => setDemoSubMode("widget")}
+              className={cn(
+                "flex-1 px-3 py-2 text-xs font-medium transition-all",
+                demoSubMode === "widget"
+                  ? "bg-purple-500/20 text-purple-400 border-l border-purple-500/30"
+                  : "bg-card text-muted-foreground hover:bg-muted border-l border-border"
+              )}
+            >
+              💳 Widget
+            </button>
           </div>
 
           {/* Mode Info Banner */}
@@ -332,6 +387,16 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
                 <div className="text-xs text-muted-foreground">
                   <p className="font-medium text-purple-400 mb-1">Real Beep Payments</p>
                   <p>Pay real USDC using Beep Checkout Widget. Scan QR with mobile wallet.</p>
+                </div>
+              </div>
+            </div>
+          ) : demoSubMode === "widget" ? (
+            <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20">
+              <div className="flex items-start gap-2">
+                <span className="text-purple-400">💳</span>
+                <div className="text-xs text-muted-foreground">
+                  <p className="font-medium text-purple-400 mb-1">CheckoutWidget</p>
+                  <p>Official Beep widget with built-in wallet & QR support.</p>
                 </div>
               </div>
             </div>
@@ -472,10 +537,54 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
                       <p className="text-xs text-muted-foreground text-center">
                         Opens Beep Checkout Widget. Scan QR with your mobile wallet.
                       </p>
+
+                      {/* Verification Result - Show after payment */}
+                      {beepLiveVerification && (
+                        <div className={cn(
+                          "p-3 rounded-lg border mt-2",
+                          beepLiveVerification.isVerifying
+                            ? "bg-purple-500/10 border-purple-500/30"
+                            : beepLiveVerification.valid
+                              ? "bg-emerald-500/10 border-emerald-500/30"
+                              : "bg-red-500/10 border-red-500/30"
+                        )}>
+                          {beepLiveVerification.isVerifying ? (
+                            <div className="flex items-center gap-2">
+                              <div className="w-4 h-4 border-2 border-purple-400 border-t-transparent rounded-full animate-spin" />
+                              <span className="text-sm text-purple-400">Verifying with Beep API...</span>
+                            </div>
+                          ) : (
+                            <div className="flex items-center gap-2">
+                              <span className={beepLiveVerification.valid ? "text-emerald-400" : "text-red-400"}>
+                                {beepLiveVerification.valid ? "✅" : "❌"}
+                              </span>
+                              <div className="text-xs">
+                                <p className={cn(
+                                  "font-medium",
+                                  beepLiveVerification.valid ? "text-emerald-400" : "text-red-400"
+                                )}>
+                                  {beepLiveVerification.valid ? "Verified" : "Not Verified"}
+                                </p>
+                                <p className="text-muted-foreground">
+                                  Method: {beepLiveVerification.method}
+                                </p>
+                                {beepLiveVerification.error && (
+                                  <p className="text-red-400 text-[10px] mt-1">
+                                    {beepLiveVerification.error}
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </>
                   )}
                 </div>
               </>
+            ) : demoSubMode === "widget" ? (
+              /* CheckoutWidget Mode */
+              <CheckoutWidgetPanel />
             ) : (
               /* SDK Integration Mode */
               <SdkIntegrationPanel />

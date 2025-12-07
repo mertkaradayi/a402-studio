@@ -43,6 +43,7 @@ export function VerifyTab() {
 
     // Log the verification method
     const methodLabels: Record<string, string> = {
+      "beep-api": "Beep API (Server)",
       "beep-polling": "Beep Payment Status",
       "format-check": "Format Check",
       "demo": "Demo Mode",

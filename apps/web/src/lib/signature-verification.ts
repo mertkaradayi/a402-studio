@@ -24,7 +24,7 @@ const BEEP_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY || "";
 
 export interface SignatureVerificationResult {
     valid: boolean;
-    method: "beep-polling" | "onchain" | "format-check" | "demo";
+    method: "beep-api" | "beep-polling" | "onchain" | "format-check" | "demo";
     error?: string;
     details?: {
         signer?: string;
@@ -52,8 +52,93 @@ function isBeepSdkPayment(receipt: A402Receipt): boolean {
 }
 
 /**
- * Verify receipt via Beep SDK's getPaymentStatus()
- * This queries Beep to check if they've detected the payment
+ * Check if the API is reachable
+ * This helps distinguish between "API not running" and "verification failed"
+ */
+async function isApiReachable(): Promise<boolean> {
+    try {
+        const response = await fetch(`${LOCAL_API_URL}/health`, {
+            method: "GET",
+            signal: AbortSignal.timeout(3000),
+        });
+        return response.ok;
+    } catch {
+        return false;
+    }
+}
+
+/**
+ * Verify receipt via server-side Beep API (uses secret key)
+ * This is the primary verification method for Beep SDK payments
+ *
+ * @param receipt - The receipt containing requestNonce (referenceKey from Beep session)
+ * @param challenge - Optional challenge for amount matching
+ * @returns verification result from server-side Beep verification
+ */
+export async function verifyReceiptViaBeepServerAPI(
+    receipt: A402Receipt,
+    challenge?: { amount: string; recipient: string; nonce: string }
+): Promise<SignatureVerificationResult> {
+    const url = `${LOCAL_API_URL}/a402/verify-beep`;
+    console.log("[verifyBeepServerAPI] Calling:", url);
+
+    try {
+        const response = await fetch(url, {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+            },
+            body: JSON.stringify({ receipt, challenge }),
+            signal: AbortSignal.timeout(10000),
+        });
+
+        console.log("[verifyBeepServerAPI] Response status:", response.status);
+
+        const data = await response.json();
+        console.log("[verifyBeepServerAPI] Response data:", data);
+
+        return {
+            valid: data.valid === true,
+            method: "beep-api",
+            error: data.valid ? undefined : (data.error || "Beep verification failed"),
+            details: {
+                apiResponse: data.details || data,
+            },
+        };
+    } catch (error) {
+        console.error("[verifyBeepServerAPI] Error:", error);
+
+        // Provide more helpful error message
+        let errorMessage = "Failed to verify via Beep API";
+        if (error instanceof TypeError && error.message === "Failed to fetch") {
+            // Check if API URL is localhost but we're running from a remote origin
+            const isRemoteOrigin = typeof window !== "undefined" &&
+                !window.location.hostname.includes("localhost") &&
+                !window.location.hostname.includes("127.0.0.1");
+            const isLocalApi = LOCAL_API_URL.includes("localhost") || LOCAL_API_URL.includes("127.0.0.1");
+
+            if (isRemoteOrigin && isLocalApi) {
+                errorMessage = `API server at ${LOCAL_API_URL} is not reachable from this domain. Either run the API locally, expose it via ngrok, or deploy to Railway.`;
+            } else {
+                errorMessage = `Cannot reach API server at ${LOCAL_API_URL}. Make sure the API is running.`;
+            }
+        } else if (error instanceof Error) {
+            errorMessage = error.message;
+        }
+
+        return {
+            valid: false,
+            method: "beep-api",
+            error: errorMessage,
+        };
+    }
+}
+
+/**
+ * Verify receipt via Beep SDK's getPaymentStatus() (client-side polling)
+ * This is a fallback when server-side verification is not available
+ *
+ * First tries via our backend proxy (to avoid CORS issues), then falls back to direct SDK call.
  *
  * @param receipt - The receipt containing requestNonce (referenceKey from Beep session)
  * @returns verification result with paid status from Beep
@@ -61,7 +146,47 @@ function isBeepSdkPayment(receipt: A402Receipt): boolean {
 export async function verifyReceiptViaBeepAPI(
     receipt: A402Receipt
 ): Promise<SignatureVerificationResult> {
-    // For Beep SDK payments, use getPaymentStatus
+    const referenceKey = receipt.requestNonce;
+
+    if (!referenceKey) {
+        return {
+            valid: false,
+            method: "beep-polling",
+            error: "Missing referenceKey (requestNonce) in receipt",
+        };
+    }
+
+    // First, try via our backend proxy (avoids CORS issues)
+    try {
+        const proxyUrl = `${LOCAL_API_URL}/proxy/beep/payment-status/${referenceKey}`;
+        console.log("[verifyBeepAPI] Trying proxy:", proxyUrl);
+
+        const proxyResponse = await fetch(proxyUrl, {
+            headers: {
+                "X-Beep-PK": BEEP_PUBLISHABLE_KEY,
+            },
+        });
+
+        if (proxyResponse.ok) {
+            const proxyData = await proxyResponse.json();
+            console.log("[verifyBeepAPI] Proxy response:", proxyData);
+
+            const paid = proxyData.paid === true;
+            return {
+                valid: paid,
+                method: "beep-polling",
+                error: paid ? undefined : `Payment not yet confirmed by Beep (status: ${proxyData.status || "unknown"})`,
+                details: {
+                    apiResponse: proxyData as Record<string, unknown>,
+                },
+            };
+        }
+        console.log("[verifyBeepAPI] Proxy failed, trying direct SDK...");
+    } catch (proxyError) {
+        console.log("[verifyBeepAPI] Proxy error:", proxyError, "- trying direct SDK...");
+    }
+
+    // Fallback to direct SDK call
     if (!BEEP_PUBLISHABLE_KEY) {
         return {
             valid: false,
@@ -74,17 +199,6 @@ export async function verifyReceiptViaBeepAPI(
         const beepClient = new BeepPublicClient({
             publishableKey: BEEP_PUBLISHABLE_KEY,
         });
-
-        // The requestNonce is the referenceKey from the payment session
-        const referenceKey = receipt.requestNonce;
-
-        if (!referenceKey) {
-            return {
-                valid: false,
-                method: "beep-polling",
-                error: "Missing referenceKey (requestNonce) in receipt",
-            };
-        }
 
         // Query Beep's payment status
         const status = await beepClient.widget.getPaymentStatus(referenceKey);
@@ -144,10 +258,28 @@ export async function verifyReceiptOnChainAPI(
         };
     } catch (error) {
         console.error("[verifyOnChainAPI] Error:", error);
+
+        // Provide more helpful error message
+        let errorMessage = "Failed to verify on-chain";
+        if (error instanceof TypeError && error.message === "Failed to fetch") {
+            const isRemoteOrigin = typeof window !== "undefined" &&
+                !window.location.hostname.includes("localhost") &&
+                !window.location.hostname.includes("127.0.0.1");
+            const isLocalApi = LOCAL_API_URL.includes("localhost") || LOCAL_API_URL.includes("127.0.0.1");
+
+            if (isRemoteOrigin && isLocalApi) {
+                errorMessage = `API server at ${LOCAL_API_URL} is not reachable. When running from ngrok/remote domain, expose your API via ngrok too or deploy to Railway.`;
+            } else {
+                errorMessage = `Cannot reach API server at ${LOCAL_API_URL}. Make sure the API is running (yarn workspace api dev).`;
+            }
+        } else if (error instanceof Error) {
+            errorMessage = error.message;
+        }
+
         return {
             valid: false,
             method: "onchain",
-            error: error instanceof Error ? error.message : "Failed to verify on-chain",
+            error: errorMessage,
         };
     }
 }
@@ -200,21 +332,40 @@ export async function verifyFacilitatorSignature(
 
     // Check if this is a Beep SDK payment
     if (isBeepSdkPayment(receipt)) {
-        console.log("[verify] Beep SDK payment detected, trying Beep getPaymentStatus()...");
+        console.log("[verify] Beep SDK payment detected, trying server-side Beep API verification...");
 
-        // First try Beep's getPaymentStatus()
-        const beepResult = await verifyReceiptViaBeepAPI(receipt);
-        console.log("[verify] Beep API result:", {
-            valid: beepResult.valid,
-            method: beepResult.method,
-            error: beepResult.error,
-            apiResponse: beepResult.details?.apiResponse,
+        // Try server-side Beep API verification first (uses secret key)
+        const beepServerResult = await verifyReceiptViaBeepServerAPI(receipt, challenge ? {
+            amount: challenge.amount,
+            recipient: challenge.recipient,
+            nonce: challenge.nonce,
+        } : undefined);
+
+        console.log("[verify] Beep Server API result:", {
+            valid: beepServerResult.valid,
+            method: beepServerResult.method,
+            error: beepServerResult.error,
+            apiResponse: beepServerResult.details?.apiResponse,
         });
 
-        // If Beep confirmed payment, we're done
-        if (beepResult.valid) {
-            console.log("[verify] PASS: Beep confirmed payment");
-            return beepResult;
+        // If server-side Beep verification passed, we're done
+        if (beepServerResult.valid) {
+            console.log("[verify] PASS: Server-side Beep API confirmed payment");
+            return beepServerResult;
+        }
+
+        // If server-side failed, try client-side getPaymentStatus as fallback
+        console.log("[verify] Server-side Beep not confirmed. Trying client-side getPaymentStatus()...");
+        const beepClientResult = await verifyReceiptViaBeepAPI(receipt);
+        console.log("[verify] Beep Client API result:", {
+            valid: beepClientResult.valid,
+            method: beepClientResult.method,
+            error: beepClientResult.error,
+        });
+
+        if (beepClientResult.valid) {
+            console.log("[verify] PASS: Client-side Beep confirmed payment");
+            return beepClientResult;
         }
 
         // If Beep hasn't confirmed yet but we have a valid txHash,
@@ -254,9 +405,10 @@ export async function verifyFacilitatorSignature(
                         method: "onchain",
                         details: {
                             apiResponse: {
-                                beepStatus: beepResult.details?.apiResponse,
+                                beepServerStatus: beepServerResult.details?.apiResponse,
+                                beepClientStatus: beepClientResult.details?.apiResponse,
                                 onChainVerified: true,
-                                note: "Payment verified on-chain (Beep polling pending)",
+                                note: "Payment verified on-chain (Beep API verification pending)",
                             },
                         },
                     };
@@ -271,9 +423,9 @@ export async function verifyFacilitatorSignature(
             console.log("[verify] txHash chars:", receipt.txHash?.split('').map(c => c.charCodeAt(0)));
         }
 
-        // Both failed - return Beep's result (more informative)
-        console.log("[verify] FAIL: Returning Beep result");
-        return beepResult;
+        // All methods failed - return server-side result (more informative)
+        console.log("[verify] FAIL: Returning server-side Beep result");
+        return beepServerResult;
     }
 
     // Check if this is a direct wallet payment or other receipt - use on-chain verification

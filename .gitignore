@@ -12,14 +12,20 @@ build
 # Turbo
 .turbo
 
-# Environment
+# Environment - exclude all .env files except examples
 .env
 .env.local
 .env.development.local
 .env.test.local
 .env.production.local
+.env.development
+.env.production
+
+# Allow .env.example and .env.*.example files
 !.env.example
-!apps/web/.env.example
+!.env.*.example
+!apps/**/.env.example
+!apps/**/.env.*.example
 
 # IDE
 .vscode
