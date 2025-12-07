@@ -1,17 +1,26 @@
 "use client";
 
 import { useFlowStore } from "@/stores/flow-store";
+import { useStreamingStore } from "@/stores/streaming-store";
 import { WalletButton } from "./wallet-button";
 import { PaymentWidget } from "./payment-widget";
+import { StreamingWidget } from "./streaming-widget";
 import { ResultsPanel } from "./panels/results-panel";
+import { StreamingPanel } from "./streaming-panel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
 import { StepIndicator } from "./step-indicator";
 import { SettingsDropdown } from "./settings-dropdown";
+import { useState } from "react";
+
+// Main playground mode
+type PlaygroundMode = "payment" | "streaming";
 
 export function FlowPlayground() {
   const { resetFlow, receipt, paymentMode, setPaymentMode, currentStep, resetSteps } = useFlowStore();
+  const { currentSession, isSimulationMode, setSimulationMode, resetSession } = useStreamingStore();
+  const [playgroundMode, setPlaygroundMode] = useState<PlaygroundMode>("payment");
 
   const network = process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "mainnet" : "testnet";
 
@@ -34,35 +43,81 @@ export function FlowPlayground() {
           </div>
 
           {/* Center: Mode Toggle */}
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center">
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-4">
+            {/* Playground Mode Selector */}
             <div className="flex items-center border border-border rounded-lg overflow-hidden bg-muted/50">
               <button
-                onClick={() => setPaymentMode("simulation")}
+                onClick={() => setPlaygroundMode("payment")}
                 className={cn(
-                  "px-4 py-1.5 text-sm font-medium transition-all relative",
-                  paymentMode === "simulation"
+                  "px-3 py-1.5 text-sm font-medium transition-all relative",
+                  playgroundMode === "payment"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Payment
+                {playgroundMode === "payment" && (
+                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+              <div className="w-px h-5 bg-border" />
+              <button
+                onClick={() => setPlaygroundMode("streaming")}
+                className={cn(
+                  "px-3 py-1.5 text-sm font-medium transition-all relative",
+                  playgroundMode === "streaming"
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Streaming
+                {playgroundMode === "streaming" && (
+                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-purple-500 rounded-full" />
+                )}
+              </button>
+            </div>
+
+            {/* Sandbox/Live Toggle */}
+            <div className="flex items-center border border-border rounded-lg overflow-hidden bg-muted/50">
+              <button
+                onClick={() => {
+                  if (playgroundMode === "payment") {
+                    setPaymentMode("simulation");
+                  } else {
+                    setSimulationMode(true);
+                  }
+                }}
+                className={cn(
+                  "px-3 py-1.5 text-sm font-medium transition-all relative",
+                  (playgroundMode === "payment" ? paymentMode === "simulation" : isSimulationMode)
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 Sandbox
-                {paymentMode === "simulation" && (
-                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-8 h-0.5 bg-primary rounded-full" />
+                {(playgroundMode === "payment" ? paymentMode === "simulation" : isSimulationMode) && (
+                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-primary rounded-full" />
                 )}
               </button>
               <div className="w-px h-5 bg-border" />
               <button
-                onClick={() => setPaymentMode("live")}
+                onClick={() => {
+                  if (playgroundMode === "payment") {
+                    setPaymentMode("live");
+                  } else {
+                    setSimulationMode(false);
+                  }
+                }}
                 className={cn(
-                  "px-4 py-1.5 text-sm font-medium transition-all relative",
-                  paymentMode === "live"
+                  "px-3 py-1.5 text-sm font-medium transition-all relative",
+                  (playgroundMode === "payment" ? paymentMode === "live" : !isSimulationMode)
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 Live
-                {paymentMode === "live" && (
-                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-8 h-0.5 bg-neon-green rounded-full" />
+                {(playgroundMode === "payment" ? paymentMode === "live" : !isSimulationMode) && (
+                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-neon-green rounded-full" />
                 )}
               </button>
             </div>
@@ -85,13 +140,18 @@ export function FlowPlayground() {
 
             <WalletButton />
 
-            {(receipt || currentStep >= 0) && (
+            {((playgroundMode === "payment" && (receipt || currentStep >= 0)) ||
+              (playgroundMode === "streaming" && currentSession)) && (
               <Button
                 variant="ghost"
                 size="sm"
                 onClick={() => {
-                  resetFlow();
-                  resetSteps();
+                  if (playgroundMode === "payment") {
+                    resetFlow();
+                    resetSteps();
+                  } else {
+                    resetSession();
+                  }
                 }}
                 className="text-muted-foreground hover:text-foreground"
               >
@@ -101,8 +161,8 @@ export function FlowPlayground() {
           </div>
         </div>
 
-        {/* Step Indicator */}
-        {currentStep >= 0 && (
+        {/* Step Indicator - Payment mode only */}
+        {playgroundMode === "payment" && currentStep >= 0 && (
           <div className="px-6 pb-3 border-t border-border/50 bg-muted/10">
             <StepIndicator currentStep={currentStep} />
           </div>
@@ -111,15 +171,15 @@ export function FlowPlayground() {
 
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left: Payment Widget */}
+        {/* Left: Widget Area */}
         <div className="w-full md:w-[55%] border-r border-border overflow-hidden relative">
           <div className="absolute inset-0 bg-[radial-gradient(#36363B_1px,transparent_1px)] [background-size:20px_20px] opacity-[0.02] dark:opacity-[0.08] pointer-events-none" />
-          <PaymentWidget />
+          {playgroundMode === "payment" ? <PaymentWidget /> : <StreamingWidget />}
         </div>
 
-        {/* Right: Results Panel */}
+        {/* Right: Panel Area */}
         <div className="hidden md:block w-[45%] overflow-hidden bg-muted/5">
-          <ResultsPanel />
+          {playgroundMode === "payment" ? <ResultsPanel /> : <StreamingPanel />}
         </div>
       </div>
 

@@ -3,6 +3,7 @@ import express from "express";
 import cors from "cors";
 import { a402Router } from "./routes/a402.js";
 import { proxyRouter } from "./routes/proxy.js";
+import { streamingRouter } from "./routes/streaming.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -49,6 +50,9 @@ app.get("/health", (_req, res) => {
 
 // a402 routes
 app.use("/a402", a402Router);
+
+// Streaming payment routes
+app.use("/streaming", streamingRouter);
 
 // Proxy route for CORS bypass
 app.use("/proxy", proxyRouter);
