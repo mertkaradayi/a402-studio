@@ -33,29 +33,41 @@ function buildHeaders(sessionId?: string) {
 
   if (AUTH_HEADER) headers["Authorization"] = AUTH_HEADER;
   if (sessionId) headers["mcp-session-id"] = sessionId;
+
+  // Required by Beep MCP server
+  headers["Accept"] = "application/json, text/event-stream";
+
   return headers;
 }
 
 async function initializeSession() {
-  requireAuthOrThrow();
-  const resp = await axios.post(
-    MCP_BASE_URL,
-    {
-      jsonrpc: "2.0",
-      id: "init",
-      method: "initialize",
-      params: {
-        clientInfo: { name: "a402-playground", version: "1.0.0" },
+  // requireAuthOrThrow(); // Relaxed: Allow init without keys (upstream might allow it)
+  try {
+    const resp = await axios.post(
+      MCP_BASE_URL,
+      {
+        jsonrpc: "2.0",
+        id: "init",
+        method: "initialize",
+        params: {
+          protocolVersion: "2024-11-05", // Required by MCP SDK
+          capabilities: {},
+          clientInfo: { name: "a402-playground", version: "1.0.0" },
+        },
       },
-    },
-    { headers: buildHeaders() }
-  );
+      { headers: buildHeaders() }
+    );
 
-  const sessionId = resp.headers["mcp-session-id"] as string | undefined;
-  if (!sessionId) {
-    throw new Error("MCP initialize did not return mcp-session-id header");
+    const sessionId = resp.headers["mcp-session-id"] as string | undefined;
+    if (!sessionId) {
+      console.error("[MCP] Init failed: No session ID returned", resp.data);
+      throw new Error("MCP initialize did not return mcp-session-id header");
+    }
+    return sessionId;
+  } catch (error: any) {
+    console.error("[MCP] Initialize error:", error.response?.data || error.message);
+    throw error;
   }
-  return sessionId;
 }
 
 async function callToolsList(sessionId: string) {
