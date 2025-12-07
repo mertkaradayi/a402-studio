@@ -1,13 +1,16 @@
 /**
  * Signature Verification Utilities
  *
- * Primary: Verifies receipts via Beep's /a402/verify API endpoint
- * Fallback: Local Ed25519 verification if API is unavailable
+ * Primary: Verifies Beep SDK payments via getPaymentStatus() polling
+ * Fallback: On-chain verification for direct wallet payments
+ *
+ * Note: Beep's /a402/verify endpoint is not publicly available.
+ * Instead, we use getPaymentStatus() which is the SDK's designed verification method.
  *
  * Reference: https://documentation.justbeep.it/product-overview/agent-to-agent-payments-a402/protocol-specs
  */
 
-import { ed25519 } from "@noble/curves/ed25519";
+import { BeepPublicClient } from "@beep-it/sdk-core";
 import type { A402Receipt } from "@/stores/flow-store";
 
 /**
@@ -16,12 +19,12 @@ import type { A402Receipt } from "@/stores/flow-store";
  */
 const DEMO_SIGNATURE_PREFIXES = ["0xBEEP_", "0xSIG_", "0xDEMO_", "demo:", "sig_demo", "sig:demo"];
 
-const BEEP_API_URL = process.env.NEXT_PUBLIC_BEEP_SERVER_URL || "https://api.justbeep.it";
 const LOCAL_API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+const BEEP_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY || "";
 
 export interface SignatureVerificationResult {
     valid: boolean;
-    method: "beep-api" | "sui-ed25519" | "format-check" | "demo" | "onchain";
+    method: "beep-polling" | "onchain" | "format-check" | "demo";
     error?: string;
     details?: {
         signer?: string;
@@ -42,85 +45,65 @@ function isDirectWalletPayment(receipt: A402Receipt): boolean {
 }
 
 /**
- * Verify receipt via local API proxy to Beep's API endpoint
- * Uses proxy to avoid CORS issues
+ * Check if this is a Beep SDK payment session
+ */
+function isBeepSdkPayment(receipt: A402Receipt): boolean {
+    return receipt.signature.startsWith("beep_sdk_");
+}
+
+/**
+ * Verify receipt via Beep SDK's getPaymentStatus()
+ * This queries Beep to check if they've detected the payment
+ *
+ * @param receipt - The receipt containing requestNonce (referenceKey from Beep session)
+ * @returns verification result with paid status from Beep
  */
 export async function verifyReceiptViaBeepAPI(
     receipt: A402Receipt
 ): Promise<SignatureVerificationResult> {
-    try {
-        // Get publishable key from environment
-        const publishableKey = typeof window !== 'undefined'
-            ? process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY
-            : undefined;
+    // For Beep SDK payments, use getPaymentStatus
+    if (!BEEP_PUBLISHABLE_KEY) {
+        return {
+            valid: false,
+            method: "beep-polling",
+            error: "BEEP_PUBLISHABLE_KEY not configured",
+        };
+    }
 
-        // Use local proxy to avoid CORS
-        const response = await fetch(`${LOCAL_API_URL}/a402/verify-beep`, {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            body: JSON.stringify({
-                receipt: {
-                    id: receipt.id,
-                    requestNonce: receipt.requestNonce,
-                    payer: receipt.payer,
-                    merchant: receipt.merchant,
-                    amount: receipt.amount,
-                    asset: receipt.asset,
-                    chain: receipt.chain,
-                    txHash: receipt.txHash,
-                    signature: receipt.signature,
-                    issuedAt: receipt.issuedAt,
-                },
-                // Include publishable key for Beep API authentication
-                publishableKey,
-            }),
+    try {
+        const beepClient = new BeepPublicClient({
+            publishableKey: BEEP_PUBLISHABLE_KEY,
         });
 
-        if (response.ok) {
-            const data = await response.json();
-            return {
-                valid: data.valid === true,
-                method: "beep-api",
-                error: data.valid ? undefined : (data.error || data.message || "Verification failed"),
-                details: {
-                    apiResponse: data,
-                },
-            };
-        }
+        // The requestNonce is the referenceKey from the payment session
+        const referenceKey = receipt.requestNonce;
 
-        // Handle specific error codes
-        if (response.status === 422) {
-            const data = await response.json().catch(() => ({}));
+        if (!referenceKey) {
             return {
                 valid: false,
-                method: "beep-api",
-                error: data.error || "Invalid receipt format or signature mismatch",
-                details: { apiResponse: data },
+                method: "beep-polling",
+                error: "Missing referenceKey (requestNonce) in receipt",
             };
         }
 
-        if (response.status === 409) {
-            return {
-                valid: false,
-                method: "beep-api",
-                error: "Nonce already used (replay attack detected)",
-            };
-        }
+        // Query Beep's payment status
+        const status = await beepClient.widget.getPaymentStatus(referenceKey);
 
-        // API error - return error with status
+        const paid = (status as { paid?: boolean })?.paid === true;
+
         return {
-            valid: false,
-            method: "beep-api",
-            error: `Beep API returned ${response.status}: ${response.statusText}`,
+            valid: paid,
+            method: "beep-polling",
+            error: paid ? undefined : "Payment not yet confirmed by Beep",
+            details: {
+                apiResponse: status as unknown as Record<string, unknown>,
+            },
         };
     } catch (error) {
-        // Network error - will fall back to local verification
         return {
             valid: false,
-            method: "beep-api",
-            error: error instanceof Error ? error.message : "Failed to connect to Beep API",
+            method: "beep-polling",
+            error: error instanceof Error ? error.message : "Failed to query Beep payment status",
         };
     }
 }
@@ -133,8 +116,12 @@ export async function verifyReceiptOnChainAPI(
     receipt: A402Receipt,
     challenge?: { amount: string; chain: string; nonce: string; recipient: string; expiry?: number }
 ): Promise<SignatureVerificationResult> {
+    const url = `${LOCAL_API_URL}/a402/verify-onchain`;
+    console.log("[verifyOnChainAPI] Calling:", url);
+    console.log("[verifyOnChainAPI] Request body:", JSON.stringify({ receipt, challenge }, null, 2));
+
     try {
-        const response = await fetch(`${LOCAL_API_URL}/a402/verify-onchain`, {
+        const response = await fetch(url, {
             method: "POST",
             headers: {
                 "Content-Type": "application/json",
@@ -142,7 +129,10 @@ export async function verifyReceiptOnChainAPI(
             body: JSON.stringify({ receipt, challenge }),
         });
 
+        console.log("[verifyOnChainAPI] Response status:", response.status);
+
         const data = await response.json();
+        console.log("[verifyOnChainAPI] Response data:", data);
 
         return {
             valid: data.valid === true,
@@ -153,6 +143,7 @@ export async function verifyReceiptOnChainAPI(
             },
         };
     } catch (error) {
+        console.error("[verifyOnChainAPI] Error:", error);
         return {
             valid: false,
             method: "onchain",
@@ -162,13 +153,15 @@ export async function verifyReceiptOnChainAPI(
 }
 
 /**
- * Verify a Beep facilitator signature on a receipt
+ * Verify a Beep payment receipt
  *
  * Strategy:
  * 1. Check for demo signatures (for local testing)
- * 2. Check for direct wallet payments (sui_tx_ prefix) - use on-chain verification
- * 3. Try Beep API verification via proxy (recommended for Beep payments)
- * 4. Fall back to local Ed25519 if API fails and we have the public key
+ * 2. Check for Beep SDK payments (beep_sdk_ prefix):
+ *    - First try Beep's getPaymentStatus()
+ *    - If Beep hasn't confirmed yet, fall back to on-chain verification
+ * 3. Check for direct wallet payments (sui_tx_ prefix) - use on-chain verification
+ * 4. Default to on-chain verification for other receipts
  */
 export async function verifyFacilitatorSignature(
     receipt: A402Receipt,
@@ -176,8 +169,16 @@ export async function verifyFacilitatorSignature(
 ): Promise<SignatureVerificationResult> {
     const signature = receipt.signature;
 
+    console.log("[verify] Starting verification for receipt:", {
+        id: receipt.id,
+        signature: signature?.slice(0, 30) + "...",
+        txHash: receipt.txHash,
+        requestNonce: receipt.requestNonce,
+    });
+
     // No signature = invalid
     if (!signature) {
+        console.log("[verify] FAIL: Missing signature");
         return {
             valid: false,
             method: "format-check",
@@ -187,6 +188,7 @@ export async function verifyFacilitatorSignature(
 
     // Check if this is a demo/mock signature
     if (isDemoSignature(signature)) {
+        console.log("[verify] PASS: Demo signature detected");
         return {
             valid: true,
             method: "demo",
@@ -196,111 +198,94 @@ export async function verifyFacilitatorSignature(
         };
     }
 
-    // Check if this is a direct wallet payment (bypasses Beep's payment flow)
-    if (isDirectWalletPayment(receipt)) {
-        // Use on-chain verification for direct wallet payments
-        return verifyReceiptOnChainAPI(receipt, challenge);
+    // Check if this is a Beep SDK payment
+    if (isBeepSdkPayment(receipt)) {
+        console.log("[verify] Beep SDK payment detected, trying Beep getPaymentStatus()...");
+
+        // First try Beep's getPaymentStatus()
+        const beepResult = await verifyReceiptViaBeepAPI(receipt);
+        console.log("[verify] Beep API result:", {
+            valid: beepResult.valid,
+            method: beepResult.method,
+            error: beepResult.error,
+            apiResponse: beepResult.details?.apiResponse,
+        });
+
+        // If Beep confirmed payment, we're done
+        if (beepResult.valid) {
+            console.log("[verify] PASS: Beep confirmed payment");
+            return beepResult;
+        }
+
+        // If Beep hasn't confirmed yet but we have a valid txHash,
+        // fall back to on-chain verification
+        console.log("[verify] Beep not confirmed. Checking txHash for on-chain fallback:", {
+            txHash: receipt.txHash,
+            txHashLength: receipt.txHash?.length,
+            regexTest: receipt.txHash ? /^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(receipt.txHash) : false,
+        });
+
+        const txHashValid = receipt.txHash && isValidSuiTxHash(receipt.txHash);
+        console.log("[verify] txHash validation result:", txHashValid);
+
+        if (txHashValid) {
+            console.log("[verify] Trying on-chain verification fallback...");
+            console.log("[verify] Challenge being passed:", challenge ? {
+                nonce: challenge.nonce,
+                amount: challenge.amount,
+                recipient: challenge.recipient,
+                chain: challenge.chain,
+            } : "NO CHALLENGE PROVIDED");
+
+            try {
+                const onChainResult = await verifyReceiptOnChainAPI(receipt, challenge);
+                console.log("[verify] On-chain result:", {
+                    valid: onChainResult.valid,
+                    method: onChainResult.method,
+                    error: onChainResult.error,
+                    apiResponse: onChainResult.details?.apiResponse,
+                });
+
+                // If on-chain verification passes, return success with combined info
+                if (onChainResult.valid) {
+                    console.log("[verify] PASS: On-chain verification succeeded");
+                    return {
+                        valid: true,
+                        method: "onchain",
+                        details: {
+                            apiResponse: {
+                                beepStatus: beepResult.details?.apiResponse,
+                                onChainVerified: true,
+                                note: "Payment verified on-chain (Beep polling pending)",
+                            },
+                        },
+                    };
+                }
+
+                console.log("[verify] FAIL: On-chain verification failed with:", onChainResult.error);
+            } catch (error) {
+                console.error("[verify] On-chain verification threw error:", error);
+            }
+        } else {
+            console.log("[verify] FAIL: Invalid txHash format, cannot fall back to on-chain");
+            console.log("[verify] txHash chars:", receipt.txHash?.split('').map(c => c.charCodeAt(0)));
+        }
+
+        // Both failed - return Beep's result (more informative)
+        console.log("[verify] FAIL: Returning Beep result");
+        return beepResult;
     }
 
-    // Try Beep API verification via proxy (recommended approach for Beep payments)
-    const apiResult = await verifyReceiptViaBeepAPI(receipt);
-
-    if (apiResult.method === "beep-api" && !apiResult.error?.includes("Failed to connect")) {
-        // API responded (even if invalid) - use that result
-        return apiResult;
-    }
-
-    // API unavailable - try local verification if we have the public key
-    const localResult = await verifyLocally(receipt);
-
-    // If local verification succeeded, return it
-    if (localResult.valid) {
-        return localResult;
-    }
-
-    // Both failed - return the more informative error
-    if (apiResult.error?.includes("Failed to connect")) {
-        return {
-            valid: false,
-            method: "format-check",
-            error: `Beep API unavailable and local verification failed: ${localResult.error}`,
-        };
-    }
-
-    return localResult;
+    // Check if this is a direct wallet payment or other receipt - use on-chain verification
+    console.log("[verify] Non-Beep SDK payment, using on-chain verification");
+    return verifyReceiptOnChainAPI(receipt, challenge);
 }
 
 /**
- * Local Ed25519 signature verification
- * Used as fallback when Beep API is unavailable
+ * Check if a string is a valid Sui transaction hash (base58, 43-44 chars)
  */
-async function verifyLocally(receipt: A402Receipt): Promise<SignatureVerificationResult> {
-    try {
-        const facilitatorKey = getFacilitatorPublicKey();
-
-        if (!facilitatorKey) {
-            return {
-                valid: false,
-                method: "format-check",
-                error: "Beep API unavailable and no local facilitator key configured",
-            };
-        }
-
-        const decodedSignature = decodeSignature(receipt.signature);
-
-        if (!decodedSignature) {
-            return {
-                valid: false,
-                method: "format-check",
-                error: "Unsupported signature format",
-            };
-        }
-
-        const publicKeyBytes = normalizePublicKeyToBytes(facilitatorKey);
-
-        if (!publicKeyBytes) {
-            return {
-                valid: false,
-                method: "format-check",
-                error: "Invalid facilitator public key format",
-            };
-        }
-
-        const messageBytes = new TextEncoder().encode(createReceiptMessage(receipt));
-        const isValid = ed25519.verify(decodedSignature.signatureBytes, messageBytes, publicKeyBytes);
-
-        return {
-            valid: isValid,
-            method: "sui-ed25519",
-            error: isValid ? undefined : "Ed25519 verification failed",
-            details: {
-                signer: bytesToHex(publicKeyBytes),
-            },
-        };
-    } catch (error) {
-        return {
-            valid: false,
-            method: "format-check",
-            error: error instanceof Error ? error.message : "Local verification failed",
-        };
-    }
-}
-
-/**
- * Create the canonical message that was signed
- */
-export function createReceiptMessage(receipt: A402Receipt): string {
-    return JSON.stringify({
-        id: receipt.id,
-        requestNonce: receipt.requestNonce,
-        payer: receipt.payer,
-        merchant: receipt.merchant,
-        amount: receipt.amount,
-        asset: receipt.asset,
-        chain: receipt.chain,
-        txHash: receipt.txHash,
-        issuedAt: receipt.issuedAt,
-    });
+function isValidSuiTxHash(hash: string): boolean {
+    return /^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(hash);
 }
 
 /**
@@ -372,111 +357,29 @@ export function isValidSignatureFormat(signature: string): boolean {
         return true;
     }
 
-    // Hex signature (0x prefix + 128 hex chars for Ed25519 = 64 bytes)
-    if (signature.startsWith("0x")) {
-        return /^0x[a-fA-F0-9]{128}$/.test(signature);
+    // Beep SDK signatures
+    if (signature.startsWith("beep_sdk_") || signature.startsWith("beep_verified_")) {
+        return true;
     }
 
-    // Base64 signature (Sui format: 1 byte flag + 64 bytes sig + optional 32 bytes pubkey)
-    if (isBase64String(signature)) {
-        const bytes = base64ToBytes(signature);
-        // At least 65 bytes (flag + signature)
-        return bytes.length >= 65;
+    // Direct wallet payment signatures
+    if (signature.startsWith("sui_tx_")) {
+        return true;
+    }
+
+    // Hex signature (0x prefix + some hex chars)
+    if (signature.startsWith("0x") && /^0x[a-fA-F0-9]+$/.test(signature)) {
+        return true;
+    }
+
+    // Sui transaction digest format (base58)
+    if (/^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(signature)) {
+        return true;
     }
 
     return false;
 }
 
-/**
- * Get the Beep facilitator public key from environment
- * Returns null if not configured (demo signatures will be used instead)
- */
-function getFacilitatorPublicKey(): string | null {
-    return process.env.NEXT_PUBLIC_BEEP_FACILITATOR_PUBKEY || null;
-}
-
 function isDemoSignature(signature: string): boolean {
     return DEMO_SIGNATURE_PREFIXES.some((prefix) => signature.startsWith(prefix));
-}
-
-function decodeSignature(signature: string): { signatureBytes: Uint8Array } | null {
-    try {
-        const base64Bytes = isBase64String(signature) ? base64ToBytes(signature) : null;
-
-        // Handle Sui serialized signature (flag + sig + pubkey)
-        // Format: 1 byte flag (0x00 for Ed25519) + 64 bytes signature + 32 bytes pubkey
-        if (base64Bytes && base64Bytes.length >= 65 && base64Bytes[0] === 0) {
-            return { signatureBytes: base64Bytes.slice(1, 65) };
-        }
-
-        // Raw hex signature (0x + 128 hex chars = 64 bytes)
-        if (signature.startsWith("0x") && /^0x[a-fA-F0-9]{128}$/.test(signature)) {
-            return { signatureBytes: hexToBytes(signature.slice(2)) };
-        }
-
-        // Raw base64 signature (exactly 64 bytes)
-        if (base64Bytes && base64Bytes.length === 64) {
-            return { signatureBytes: base64Bytes };
-        }
-
-        return null;
-    } catch {
-        return null;
-    }
-}
-
-function normalizePublicKeyToBytes(publicKey?: string | null): Uint8Array | null {
-    if (!publicKey) return null;
-
-    if (publicKey.startsWith("0x")) {
-        const hex = publicKey.slice(2);
-        if (/^[a-fA-F0-9]{64}$/.test(hex)) {
-            return hexToBytes(hex);
-        }
-        return null;
-    }
-
-    if (isBase64String(publicKey)) {
-        const bytes = base64ToBytes(publicKey);
-        return bytes.length >= 32 ? bytes.slice(-32) : null;
-    }
-
-    return null;
-}
-
-function isBase64String(value: string): boolean {
-    return /^[A-Za-z0-9+/=]+$/.test(value);
-}
-
-function base64ToBytes(value: string): Uint8Array {
-    if (typeof Buffer !== "undefined") {
-        return Uint8Array.from(Buffer.from(value, "base64"));
-    }
-
-    if (typeof atob === "function") {
-        const binary = atob(value);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) {
-            bytes[i] = binary.charCodeAt(i);
-        }
-        return bytes;
-    }
-
-    throw new Error("Base64 decoding not available in this environment");
-}
-
-// Utility: Convert hex string to Uint8Array
-function hexToBytes(hex: string): Uint8Array {
-    const bytes = new Uint8Array(hex.length / 2);
-    for (let i = 0; i < hex.length; i += 2) {
-        bytes[i / 2] = parseInt(hex.slice(i, i + 2), 16);
-    }
-    return bytes;
-}
-
-// Utility: Convert Uint8Array to hex string
-function bytesToHex(bytes: Uint8Array): string {
-    return Array.from(bytes)
-        .map((b) => b.toString(16).padStart(2, "0"))
-        .join("");
 }

@@ -178,24 +178,25 @@ export function SdkIntegrationPanel() {
                 addDebugLog("info", `Payment status: ${JSON.stringify(status)}`);
 
                 // Create receipt from payment data
+                // Use beep_sdk_ prefix to route verification through Beep's getPaymentStatus()
                 const newReceipt: SdkReceipt = {
                     id: `rcpt_${Date.now()}`,
                     requestNonce: referenceKey,
                     payer: account?.address || "",
-                    merchant: account?.address || "", // In production, this would be the merchant
+                    merchant: session?.destinationAddress || account?.address || "",
                     amount: session?.amount || amount,
                     asset: "USDC",
                     chain: network,
                     txHash: (status as { txHash?: string })?.txHash || `beep_${referenceKey}`,
-                    signature: (status as { signature?: string })?.signature || `beep_verified_${referenceKey}`,
+                    signature: (status as { signature?: string })?.signature || `beep_sdk_${referenceKey}`,
                     issuedAt: Math.floor(Date.now() / 1000),
                 };
 
                 setSdkReceipt(newReceipt);
                 setReceipt(newReceipt, JSON.stringify(newReceipt, null, 2));
 
-                // Verify via Beep API
-                addDebugLog("info", "🔐 Verifying receipt via Beep API...");
+                // Verify via Beep's getPaymentStatus()
+                addDebugLog("info", "🔐 Verifying receipt via Beep getPaymentStatus()...");
                 const verification = await verifyReceiptViaBeepAPI(newReceipt);
                 setVerificationResult({
                     valid: verification.valid,
@@ -203,7 +204,7 @@ export function SdkIntegrationPanel() {
                 });
 
                 if (verification.valid) {
-                    addDebugLog("success", "✅ Receipt verified via Beep API!");
+                    addDebugLog("success", "✅ Payment verified by Beep!");
                 } else {
                     addDebugLog("warning", `Verification result: ${verification.error || "Unknown"}`);
                 }

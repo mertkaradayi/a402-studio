@@ -9,9 +9,6 @@ const usedNonces = new Set<string>();
 // Simulated merchant vault address
 const MERCHANT_VAULT = "0x1234567890abcdef1234567890abcdef12345678";
 
-// Beep API URL for proxying
-const BEEP_API_URL = process.env.BEEP_SERVER_URL || "https://api.justbeep.it";
-
 /**
  * POST /a402/challenge
  * Generate a 402 payment challenge for a protected resource
@@ -142,55 +139,6 @@ a402Router.post("/simulate-payment", async (req: Request, res: Response) => {
 });
 
 /**
- * POST /a402/verify-beep
- * Proxy to Beep's /a402/verify endpoint to avoid CORS issues
- * Uses publishable key for authentication
- */
-a402Router.post("/verify-beep", async (req: Request, res: Response) => {
-  const { receipt, publishableKey } = req.body;
-
-  if (!receipt) {
-    return res.status(400).json({
-      valid: false,
-      error: "Receipt required"
-    });
-  }
-
-  // Use provided key or fallback to environment variable
-  const beepKey = publishableKey || process.env.BEEP_PUBLISHABLE_KEY;
-
-  try {
-    const headers: Record<string, string> = {
-      "Content-Type": "application/json",
-      "x-beep-client": "beep-sdk",
-    };
-
-    // Add authorization if we have a key
-    if (beepKey) {
-      headers["Authorization"] = `Bearer ${beepKey}`;
-    }
-
-    const response = await fetch(`${BEEP_API_URL}/a402/verify`, {
-      method: "POST",
-      headers,
-      body: JSON.stringify({ receipt }),
-    });
-
-    const data = await response.json();
-
-    // Forward the response from Beep
-    res.status(response.status).json(data);
-  } catch (error) {
-    console.error("[a402] Failed to verify via Beep API:", error);
-    res.status(503).json({
-      valid: false,
-      error: "Failed to connect to Beep API",
-      details: error instanceof Error ? error.message : "Unknown error",
-    });
-  }
-});
-
-/**
  * POST /a402/verify-onchain
  * Verify a receipt by checking the transaction on Sui blockchain
  * This is used for direct wallet payments that bypass Beep's payment flow
@@ -201,7 +149,24 @@ a402Router.post("/verify-onchain", async (req: Request, res: Response) => {
     challenge?: A402Challenge;
   };
 
+  console.log("[verify-onchain] Request received:", {
+    receipt: receipt ? {
+      id: receipt.id,
+      signature: receipt.signature?.slice(0, 40) + "...",
+      txHash: receipt.txHash,
+      amount: receipt.amount,
+      merchant: receipt.merchant,
+      requestNonce: receipt.requestNonce,
+    } : null,
+    challenge: challenge ? {
+      nonce: challenge.nonce,
+      amount: challenge.amount,
+      recipient: challenge.recipient,
+    } : null,
+  });
+
   if (!receipt) {
+    console.log("[verify-onchain] FAIL: No receipt provided");
     return res.status(400).json({
       valid: false,
       error: "Receipt required"
@@ -251,14 +216,24 @@ a402Router.post("/verify-onchain", async (req: Request, res: Response) => {
     errors.push("Invalid transaction hash format");
   }
 
-  // For direct wallet payments, signature is the tx itself
-  // We mark it as valid since the transaction was executed
+  // For wallet payments, signature format indicates payment method
+  // We mark it as valid if:
+  // - Direct wallet payment (sui_tx_ prefix)
+  // - Beep SDK payment with wallet (beep_sdk_ or beep_verified_ prefix)
+  // - Raw Sui transaction digest
   checks.signatureValid =
     receipt.signature.startsWith("sui_tx_") ||
+    receipt.signature.startsWith("beep_sdk_") ||
     receipt.signature.startsWith("beep_verified_") ||
     isSuiDigest;
 
   const valid = Object.values(checks).every(Boolean) && errors.length === 0;
+
+  console.log("[verify-onchain] Verification result:", {
+    valid,
+    checks,
+    errors: errors.length > 0 ? errors : "none",
+  });
 
   res.json({
     valid,

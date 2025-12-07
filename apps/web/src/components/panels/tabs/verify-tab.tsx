@@ -43,8 +43,7 @@ export function VerifyTab() {
 
     // Log the verification method
     const methodLabels: Record<string, string> = {
-      "beep-api": "Beep API",
-      "sui-ed25519": "Local Ed25519",
+      "beep-polling": "Beep Payment Status",
       "format-check": "Format Check",
       "demo": "Demo Mode",
       "onchain": "On-Chain Verification",
@@ -52,10 +51,10 @@ export function VerifyTab() {
 
     addDebugLog(
       signatureValid ? "success" : "error",
-      `Signature: ${signatureValid ? "VALID" : "INVALID"} (via ${methodLabels[sigResult.method]})`
+      `Signature: ${signatureValid ? "VALID" : "INVALID"} (via ${methodLabels[sigResult.method] || sigResult.method})`
     );
 
-    if (sigResult.method === "beep-api" && sigResult.details?.apiResponse) {
+    if (sigResult.details?.apiResponse) {
       addDebugLog("info", `API Response: ${JSON.stringify(sigResult.details.apiResponse)}`);
     }
 
