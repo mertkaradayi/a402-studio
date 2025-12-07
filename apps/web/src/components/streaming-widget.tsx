@@ -14,20 +14,20 @@ const PRESET_ASSETS: { name: string; assets: StreamingAsset[] }[] = [
   {
     name: "Video Streaming",
     assets: [
-      { assetId: "video-hd", name: "HD Video Stream", quantity: 1, unitPrice: "0.0001", description: "Per 100ms" },
+      { assetId: "video-hd", name: "HD Video Stream", quantity: 1, unitPrice: "0.000001", description: "Per 100ms" },
     ],
   },
   {
     name: "API Usage",
     assets: [
-      { assetId: "api-calls", name: "API Calls", quantity: 1, unitPrice: "0.00005", description: "Per tick" },
+      { assetId: "api-calls", name: "API Calls", quantity: 1, unitPrice: "0.000001", description: "Per tick" },
     ],
   },
   {
     name: "Multi-Resource",
     assets: [
-      { assetId: "compute", name: "Compute Units", quantity: 1, unitPrice: "0.00008", description: "Per tick" },
-      { assetId: "storage", name: "Storage", quantity: 1, unitPrice: "0.00002", description: "Per tick" },
+      { assetId: "compute", name: "Compute Units", quantity: 1, unitPrice: "0.000001", description: "Per tick" },
+      { assetId: "storage", name: "Storage", quantity: 1, unitPrice: "0.000001", description: "Per tick" },
     ],
   },
 ];

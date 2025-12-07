@@ -1,5 +1,31 @@
 import { SuiClient, getFullnodeUrl } from "@mysten/sui/client";
 
+const defaultNetwork = process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "mainnet" : "testnet";
+
+export const suiClient = new SuiClient({
+  url: getFullnodeUrl(defaultNetwork),
+});
+
+/**
+ * Lightweight fetch for a transaction block by digest (uses default network env)
+ */
+export async function fetchTransaction(digest: string) {
+  try {
+    return await suiClient.getTransactionBlock({
+      digest,
+      options: {
+        showEffects: true,
+        showInput: true,
+        showEvents: true,
+        showObjectChanges: true,
+      },
+    });
+  } catch (error) {
+    console.error("[sui-client] Failed to fetch tx", digest, error);
+    return null;
+  }
+}
+
 export interface SuiTransactionDetails {
   digest: string;
   status: "success" | "failure";
@@ -33,14 +59,12 @@ function getSuiClient(chain: string): SuiClient {
 }
 
 /**
- * Fetch transaction details by digest from Sui RPC
+ * Fetch transaction details by digest for a given chain
  */
 export async function getTransaction(
   txHash: string,
   chain: string
 ): Promise<TransactionLookupResult> {
-  // Check if this is a mock transaction
-  // Real Sui digests are 43-44 characters in base58 format
   const isMock =
     txHash.includes("MOCK") ||
     txHash.includes("DEMO") ||
@@ -58,117 +82,54 @@ export async function getTransaction(
 
   try {
     const client = getSuiClient(chain);
-
-    const response = await client.getTransactionBlock({
+    const result = await client.getTransactionBlock({
       digest: txHash,
       options: {
-        showInput: true,
         showEffects: true,
+        showInput: true,
         showEvents: true,
-        showObjectChanges: true,
         showBalanceChanges: true,
+        showObjectChanges: true,
       },
     });
 
-    const effects = response.effects;
-    const status = effects?.status?.status === "success" ? "success" : "failure";
-
-    // Calculate total gas used
-    const gasUsed = effects?.gasUsed;
-    const computationCost = gasUsed?.computationCost || "0";
-    const storageCost = gasUsed?.storageCost || "0";
-    const storageRebate = gasUsed?.storageRebate || "0";
-    const totalGas =
-      BigInt(computationCost) +
-      BigInt(storageCost) -
-      BigInt(storageRebate);
-
+    const status = result.effects?.status?.status === "success" ? "success" : "failure";
     return {
       found: true,
       transaction: {
-        digest: response.digest,
+        digest: result.digest,
         status,
-        sender: response.transaction?.data?.sender || "Unknown",
-        timestamp: response.timestampMs ? parseInt(response.timestampMs) : null,
+        sender: result.transaction?.data?.sender || "",
+        timestamp: result.timestampMs ? Number(result.timestampMs) : null,
         gasUsed: {
-          computationCost,
-          storageCost,
-          storageRebate,
-          total: totalGas.toString(),
+          computationCost: result.effects?.gasUsed?.computationCost?.toString?.() || "0",
+          storageCost: result.effects?.gasUsed?.storageCost?.toString?.() || "0",
+          storageRebate: result.effects?.gasUsed?.storageRebate?.toString?.() || "0",
+          total:
+            result.effects?.gasUsed?.computationCost &&
+              result.effects?.gasUsed?.storageCost &&
+              result.effects?.gasUsed?.storageRebate
+              ? (
+                BigInt(result.effects.gasUsed.computationCost) +
+                BigInt(result.effects.gasUsed.storageCost) -
+                BigInt(result.effects.gasUsed.storageRebate)
+              ).toString()
+              : "0",
         },
-        checkpoint: response.checkpoint || null,
-        balanceChanges: (response.balanceChanges || []).map((change) => ({
-          owner:
-            typeof change.owner === "object" && "AddressOwner" in change.owner
-              ? change.owner.AddressOwner
-              : "Unknown",
-          coinType: change.coinType,
-          amount: change.amount,
-        })),
-        objectChanges: response.objectChanges?.length || 0,
-        events: response.events?.length || 0,
+        checkpoint: result.checkpoint || null,
+        balanceChanges:
+          result.balanceChanges?.map((bc) => ({
+            owner: typeof bc.owner === "string" ? bc.owner : JSON.stringify(bc.owner),
+            coinType: bc.coinType || "",
+            amount: bc.amount || "0",
+          })) || [],
+        objectChanges: result.objectChanges?.length || 0,
+        events: result.events?.length || 0,
       },
       error: null,
     };
-  } catch (err) {
-    const errorMessage =
-      err instanceof Error ? err.message : "Unknown error occurred";
-
-    // Handle specific Sui RPC errors
-    if (errorMessage.includes("Could not find the referenced transaction")) {
-      return {
-        found: false,
-        transaction: null,
-        error: "Transaction not found on chain",
-      };
-    }
-
-    return {
-      found: false,
-      transaction: null,
-      error: errorMessage,
-    };
+  } catch (error) {
+    console.error("[sui-client] getTransaction error", txHash, error);
+    return { found: false, transaction: null, error: error instanceof Error ? error.message : String(error) };
   }
-}
-
-/**
- * Verify that a transaction exists on chain
- */
-export async function verifyTransactionOnChain(
-  txHash: string,
-  chain: string
-): Promise<{ exists: boolean; status: "success" | "failure" | "unknown"; error: string | null }> {
-  const result = await getTransaction(txHash, chain);
-
-  if (!result.found) {
-    return {
-      exists: false,
-      status: "unknown",
-      error: result.error,
-    };
-  }
-
-  return {
-    exists: true,
-    status: result.transaction?.status || "unknown",
-    error: null,
-  };
-}
-
-/**
- * Get Sui Explorer URL for a transaction
- */
-export function getExplorerUrl(txHash: string, chain: string): string {
-  const baseUrl = "https://suiscan.xyz";
-  const network = chain === "sui-mainnet" ? "mainnet" : "testnet";
-  return `${baseUrl}/${network}/tx/${txHash}`;
-}
-
-/**
- * Format gas amount from MIST to SUI (1 SUI = 10^9 MIST)
- */
-export function formatGas(mist: string): string {
-  const mistBigInt = BigInt(mist);
-  const sui = Number(mistBigInt) / 1_000_000_000;
-  return sui.toFixed(6);
 }

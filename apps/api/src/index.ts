@@ -4,6 +4,7 @@ import cors from "cors";
 import { a402Router } from "./routes/a402.js";
 import { proxyRouter } from "./routes/proxy.js";
 import { streamingRouter } from "./routes/streaming.js";
+import { beepRouter } from "./routes/beep.js";
 import { mcpRouter } from "./routes/mcp.js";
 
 const app = express();
@@ -54,6 +55,9 @@ app.use("/a402", a402Router);
 
 // Streaming payment routes
 app.use("/streaming", streamingRouter);
+
+// Beep helper routes (direct Beep SDK server-side calls)
+app.use("/beep", beepRouter);
 
 // Proxy route for CORS bypass
 app.use("/proxy", proxyRouter);

@@ -101,7 +101,7 @@ export function PaymentWidget() {
     const [isSimulating, setIsSimulating] = useState(false);
     const [simulatedError, setSimulatedError] = useState<ErrorScenario | null>(null);
 
-    const [amount, setAmount] = useState("0.01");
+    const [amount, setAmount] = useState("0.000001");
     const [description, setDescription] = useState("Beep Payment");
 
     const network = process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "sui-mainnet" : "sui-testnet";

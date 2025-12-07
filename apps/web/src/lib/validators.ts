@@ -1,6 +1,8 @@
 import type { A402Challenge, A402Receipt, SchemaValidationResult, VerificationResult } from "@/stores/flow-store";
 import { isValidSignatureFormat } from "./signature-verification";
 
+const FACILITATOR_PUBKEY = process.env.NEXT_PUBLIC_BEEP_FACILITATOR_PUBKEY;
+
 /**
  * Validate a402 challenge against the spec
  */
@@ -191,6 +193,9 @@ export function verifyReceiptAgainstChallenge(
   const signatureValid = isValidSignatureFormat(receipt.signature);
   if (!signatureValid) {
     errors.push("Invalid signature format - signature must be hex (0x...), base64, or sig_ prefixed");
+  } else if (FACILITATOR_PUBKEY && !receipt.signature.startsWith("beep_verified_")) {
+    // If facilitator key is provided, expect a verified signature prefix (best-effort guardrail)
+    errors.push("Signature not marked as verified by facilitator");
   }
 
   return {

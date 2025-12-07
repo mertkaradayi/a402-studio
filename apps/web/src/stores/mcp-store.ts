@@ -3,10 +3,10 @@ import { create } from "zustand";
 // MCP Tool definition
 export interface MCPTool {
   name: string;
-  description: string;
-  category: "free" | "paid" | "streaming";
+  description?: string;
+  category?: "free" | "paid" | "streaming" | "unknown";
   parameters: MCPToolParameter[];
-  requiresPayment: boolean;
+  requiresPayment?: boolean;
 }
 
 export interface MCPToolParameter {
@@ -50,8 +50,10 @@ export interface MCPInvocation {
     qrCode?: string;
     amount: string;
     expiresAt: string;
+    raw?: unknown;
   };
   result?: unknown;
+  raw?: unknown;
   error?: string;
   startedAt: number;
   completedAt?: number;
@@ -68,140 +70,15 @@ export interface MCPLogEntry {
 }
 
 // Preset MCP tools matching beep-sdk
-export const PRESET_MCP_TOOLS: MCPTool[] = [
-  {
-    name: "checkBeepApi",
-    description: "Health check for Beep API connectivity",
-    category: "free",
-    requiresPayment: false,
-    parameters: [],
-  },
-  {
-    name: "requestAndPurchaseAsset",
-    description: "Initiate asset purchase with HTTP 402 payment flow",
-    category: "paid",
-    requiresPayment: true,
-    parameters: [
-      {
-        name: "assetIds",
-        type: "array",
-        description: "Array of asset UUIDs to purchase",
-        required: true,
-        example: ["asset_uuid_1", "asset_uuid_2"],
-      },
-      {
-        name: "generateQrCode",
-        type: "boolean",
-        description: "Whether to generate QR code for payment",
-        required: false,
-        default: true,
-      },
-      {
-        name: "paymentLabel",
-        type: "string",
-        description: "Label shown in wallet during payment",
-        required: false,
-        example: "My Store Purchase",
-      },
-      {
-        name: "paymentReference",
-        type: "string",
-        description: "Reference key from 402 response (for retry)",
-        required: false,
-      },
-    ],
-  },
-  {
-    name: "issuePayment",
-    description: "Create a streaming payment invoice for usage-based billing",
-    category: "streaming",
-    requiresPayment: true,
-    parameters: [
-      {
-        name: "assetChunks",
-        type: "array",
-        description: "Array of assets with quantities",
-        required: true,
-        example: [{ assetId: "uuid", quantity: 1, name: "API Call" }],
-      },
-      {
-        name: "payingMerchantId",
-        type: "string",
-        description: "ID of merchant being charged",
-        required: true,
-        example: "merchant_123",
-      },
-      {
-        name: "invoiceId",
-        type: "string",
-        description: "Optional existing invoice to add charges to",
-        required: false,
-      },
-    ],
-  },
-  {
-    name: "checkPaymentStatus",
-    description: "Query the status of a payment by reference key",
-    category: "free",
-    requiresPayment: false,
-    parameters: [
-      {
-        name: "referenceKey",
-        type: "string",
-        description: "Payment reference key to check",
-        required: true,
-        example: "ref_abc123",
-      },
-    ],
-  },
-  {
-    name: "startStreaming",
-    description: "Begin billing for a streaming payment session",
-    category: "streaming",
-    requiresPayment: true,
-    parameters: [
-      {
-        name: "invoiceId",
-        type: "string",
-        description: "Invoice ID from issuePayment",
-        required: true,
-        example: "inv_xyz789",
-      },
-    ],
-  },
-  {
-    name: "pauseStreaming",
-    description: "Temporarily halt streaming charges",
-    category: "streaming",
-    requiresPayment: false,
-    parameters: [
-      {
-        name: "invoiceId",
-        type: "string",
-        description: "Invoice ID to pause",
-        required: true,
-      },
-    ],
-  },
-  {
-    name: "stopStreaming",
-    description: "Permanently stop streaming and finalize all charges",
-    category: "streaming",
-    requiresPayment: false,
-    parameters: [
-      {
-        name: "invoiceId",
-        type: "string",
-        description: "Invoice ID to stop",
-        required: true,
-      },
-    ],
-  },
-];
-
 interface MCPStore {
   // Available tools
   tools: MCPTool[];
+
+  // Active MCP session id (from MCP server header)
+  sessionId: string | null;
+
+  toolsLoading: boolean;
+  toolsError: string | null;
 
   // Currently selected tool
   selectedTool: MCPTool | null;
@@ -253,16 +130,25 @@ interface MCPStore {
   // Actions - Reset
   resetAll: () => void;
   resetMCP: () => void;
+
+  // Actions - Session / Tools
+  setTools: (tools: MCPTool[]) => void;
+  setSessionId: (id: string | null) => void;
+  setToolsLoading: (loading: boolean) => void;
+  setToolsError: (error: string | null) => void;
 }
 
 export const useMCPStore = create<MCPStore>((set, get) => ({
-  tools: PRESET_MCP_TOOLS,
+  tools: [],
+  sessionId: null,
+  toolsLoading: false,
+  toolsError: null,
   selectedTool: null,
   currentInvocation: null,
   flowSteps: [],
   logs: [],
   invocationHistory: [],
-  isSimulationMode: true,
+  isSimulationMode: false,
 
   selectTool: (toolName) => {
     const tool = get().tools.find((t) => t.name === toolName) || null;
@@ -303,7 +189,7 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
   setInvocationResult: (result) => {
     set((state) => ({
       currentInvocation: state.currentInvocation
-        ? { ...state.currentInvocation, result, status: "complete", completedAt: Date.now() }
+        ? { ...state.currentInvocation, result, raw: result, status: "complete", completedAt: Date.now() }
         : null,
     }));
   },
@@ -407,4 +293,9 @@ export const useMCPStore = create<MCPStore>((set, get) => ({
       logs: [],
     });
   },
+
+  setTools: (tools) => set({ tools }),
+  setSessionId: (id) => set({ sessionId: id }),
+  setToolsLoading: (loading) => set({ toolsLoading: loading }),
+  setToolsError: (error) => set({ toolsError: error }),
 }));

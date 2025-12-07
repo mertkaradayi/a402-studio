@@ -1,328 +1,151 @@
 import { Router, Request, Response } from "express";
+import axios, { AxiosError } from "axios";
 
 export const mcpRouter = Router();
 
-// In-memory store for payment sessions
-interface PaymentSession {
-  referenceKey: string;
-  toolName: string;
-  amount: string;
-  status: "pending" | "paid" | "expired";
-  createdAt: number;
-  expiresAt: number;
-}
+// Base MCP endpoint (JSON-RPC over HTTP)
+const MCP_BASE_URL = process.env.BEEP_MCP_URL || `${process.env.BEEP_API_URL || "https://api.justbeep.it"}/mcp`;
 
-const paymentSessions = new Map<string, PaymentSession>();
+// Preferred auth: secret key, fallback to publishable (still server-side)
+const BEEP_SECRET_KEY = process.env.BEEP_SECRET_KEY;
+const BEEP_PUBLISHABLE_KEY = process.env.BEEP_PUBLISHABLE_KEY;
 
-// Available MCP tools
-const MCP_TOOLS = [
-  {
-    name: "checkBeepApi",
-    description: "Health check for Beep API connectivity",
-    requiresPayment: false,
-    inputSchema: {
-      type: "object",
-      properties: {},
-    },
-  },
-  {
-    name: "requestAndPurchaseAsset",
-    description: "Initiate asset purchase with HTTP 402 payment flow",
-    requiresPayment: true,
-    price: "0.50",
-    inputSchema: {
-      type: "object",
-      properties: {
-        assetIds: { type: "array", items: { type: "string" } },
-        generateQrCode: { type: "boolean" },
-        paymentLabel: { type: "string" },
-        paymentReference: { type: "string" },
-      },
-      required: ["assetIds"],
-    },
-  },
-  {
-    name: "issuePayment",
-    description: "Create a streaming payment invoice",
-    requiresPayment: true,
-    price: "0.10",
-    inputSchema: {
-      type: "object",
-      properties: {
-        assetChunks: { type: "array" },
-        payingMerchantId: { type: "string" },
-        invoiceId: { type: "string" },
-      },
-      required: ["assetChunks", "payingMerchantId"],
-    },
-  },
-  {
-    name: "checkPaymentStatus",
-    description: "Query payment status by reference key",
-    requiresPayment: false,
-    inputSchema: {
-      type: "object",
-      properties: {
-        referenceKey: { type: "string" },
-      },
-      required: ["referenceKey"],
-    },
-  },
-  {
-    name: "startStreaming",
-    description: "Begin billing for a streaming session",
-    requiresPayment: false,
-    inputSchema: {
-      type: "object",
-      properties: {
-        invoiceId: { type: "string" },
-      },
-      required: ["invoiceId"],
-    },
-  },
-  {
-    name: "pauseStreaming",
-    description: "Temporarily halt streaming charges",
-    requiresPayment: false,
-    inputSchema: {
-      type: "object",
-      properties: {
-        invoiceId: { type: "string" },
-      },
-      required: ["invoiceId"],
-    },
-  },
-  {
-    name: "stopStreaming",
-    description: "Stop streaming and finalize charges",
-    requiresPayment: false,
-    inputSchema: {
-      type: "object",
-      properties: {
-        invoiceId: { type: "string" },
-      },
-      required: ["invoiceId"],
-    },
-  },
-];
+const AUTH_HEADER = BEEP_SECRET_KEY
+  ? `Bearer ${BEEP_SECRET_KEY}`
+  : BEEP_PUBLISHABLE_KEY
+    ? `Bearer ${BEEP_PUBLISHABLE_KEY}`
+    : undefined;
 
-/**
- * GET /mcp/tools
- * List all available MCP tools
- */
-mcpRouter.get("/tools", (_req: Request, res: Response) => {
-  res.json({
-    tools: MCP_TOOLS.map((tool) => ({
-      name: tool.name,
-      description: tool.description,
-      inputSchema: tool.inputSchema,
-      requiresPayment: tool.requiresPayment,
-    })),
-  });
-});
-
-/**
- * POST /mcp/invoke
- * Invoke an MCP tool
- * Returns 402 if payment is required and not provided
- */
-mcpRouter.post("/invoke", (req: Request, res: Response) => {
-  const { toolName, parameters } = req.body;
-
-  if (!toolName) {
-    return res.status(400).json({ error: "toolName required" });
-  }
-
-  const tool = MCP_TOOLS.find((t) => t.name === toolName);
-  if (!tool) {
-    return res.status(404).json({ error: `Tool '${toolName}' not found` });
-  }
-
-  // Check if tool requires payment
-  if (tool.requiresPayment) {
-    const paymentReference = parameters?.paymentReference;
-
-    // If no payment reference, return 402
-    if (!paymentReference) {
-      const referenceKey = `ref_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 8)}`;
-      const expiresAt = Date.now() + 5 * 60 * 1000; // 5 minutes
-
-      const session: PaymentSession = {
-        referenceKey,
-        toolName,
-        amount: (tool as any).price || "0.50",
-        status: "pending",
-        createdAt: Date.now(),
-        expiresAt,
-      };
-
-      paymentSessions.set(referenceKey, session);
-
-      console.log(`[MCP] 402 Payment Required for ${toolName}, ref: ${referenceKey}`);
-
-      return res.status(402).json({
-        status: "payment_required",
-        payment: {
-          referenceKey,
-          paymentUrl: `solana:pay?recipient=0xMERCHANT&amount=${session.amount}&reference=${referenceKey}`,
-          qrCode: `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${referenceKey}`,
-          amount: session.amount,
-          expiresAt: new Date(expiresAt).toISOString(),
-        },
-        instructions: "Complete payment via wallet, then retry with paymentReference parameter",
-      });
-    }
-
-    // Verify payment reference
-    const session = paymentSessions.get(paymentReference);
-    if (!session) {
-      return res.status(400).json({ error: "Invalid payment reference" });
-    }
-
-    if (session.status !== "paid") {
-      // In simulation mode, auto-mark as paid
-      session.status = "paid";
-      console.log(`[MCP] Payment verified for ${toolName}, ref: ${paymentReference}`);
-    }
-  }
-
-  // Execute tool and return result
-  const result = executeTool(toolName, parameters);
-  console.log(`[MCP] Tool executed: ${toolName}`);
-
-  res.json({
-    content: [{ type: "text", text: JSON.stringify(result) }],
-    data: result,
-  });
-});
-
-/**
- * POST /mcp/simulate-payment
- * Simulate completing a payment (for testing)
- */
-mcpRouter.post("/simulate-payment", (req: Request, res: Response) => {
-  const { referenceKey } = req.body;
-
-  if (!referenceKey) {
-    return res.status(400).json({ error: "referenceKey required" });
-  }
-
-  const session = paymentSessions.get(referenceKey);
-  if (!session) {
-    return res.status(404).json({ error: "Payment session not found" });
-  }
-
-  if (session.expiresAt < Date.now()) {
-    session.status = "expired";
-    return res.status(410).json({ error: "Payment session expired" });
-  }
-
-  session.status = "paid";
-  console.log(`[MCP] Payment simulated for ref: ${referenceKey}`);
-
-  res.json({
-    success: true,
-    referenceKey,
-    status: "paid",
-  });
-});
-
-/**
- * GET /mcp/payment-status/:referenceKey
- * Check payment status
- */
-mcpRouter.get("/payment-status/:referenceKey", (req: Request, res: Response) => {
-  const { referenceKey } = req.params;
-
-  const session = paymentSessions.get(referenceKey);
-  if (!session) {
-    return res.status(404).json({ error: "Payment session not found" });
-  }
-
-  // Check expiry
-  if (session.status === "pending" && session.expiresAt < Date.now()) {
-    session.status = "expired";
-  }
-
-  res.json({
-    referenceKey,
-    toolName: session.toolName,
-    amount: session.amount,
-    status: session.status,
-    createdAt: new Date(session.createdAt).toISOString(),
-    expiresAt: new Date(session.expiresAt).toISOString(),
-  });
-});
-
-// Tool execution handlers
-function executeTool(toolName: string, params: Record<string, unknown>) {
-  switch (toolName) {
-    case "checkBeepApi":
-      return {
-        status: "ok",
-        timestamp: new Date().toISOString(),
-        version: "1.0.0",
-        message: "Beep API is operational",
-      };
-
-    case "requestAndPurchaseAsset":
-      return {
-        success: true,
-        invoiceId: `inv_${Date.now().toString(36)}`,
-        assets: params.assetIds || [],
-        totalAmount: "0.50",
-        token: "USDC",
-        chain: "sui-testnet",
-        paidAt: new Date().toISOString(),
-      };
-
-    case "issuePayment":
-      return {
-        invoiceId: (params.invoiceId as string) || `inv_${Date.now().toString(36)}`,
-        referenceKey: `ref_${Date.now().toString(36)}`,
-        payingMerchantId: params.payingMerchantId,
-        assetChunks: params.assetChunks,
-        status: "issued",
-      };
-
-    case "checkPaymentStatus":
-      return {
-        referenceKey: params.referenceKey,
-        status: "COMPLETED",
-        amount: "0.50",
-        token: "USDC",
-        paidAt: new Date().toISOString(),
-      };
-
-    case "startStreaming":
-      return {
-        invoiceId: params.invoiceId,
-        status: "active",
-        startedAt: new Date().toISOString(),
-      };
-
-    case "pauseStreaming":
-      return {
-        success: true,
-        invoiceId: params.invoiceId,
-        status: "paused",
-        pausedAt: new Date().toISOString(),
-      };
-
-    case "stopStreaming":
-      return {
-        invoiceId: params.invoiceId,
-        status: "stopped",
-        referenceKeys: [
-          `ref_${Date.now().toString(36)}_1`,
-          `ref_${Date.now().toString(36)}_2`,
-          `ref_${Date.now().toString(36)}_3`,
-        ],
-        totalCharged: "1.50",
-        stoppedAt: new Date().toISOString(),
-      };
-
-    default:
-      return { error: `Unknown tool: ${toolName}` };
+function requireAuthOrThrow() {
+  if (!AUTH_HEADER) {
+    console.error("[MCP] Missing BEEP_SECRET_KEY or BEEP_PUBLISHABLE_KEY");
+    throw Object.assign(new Error("BEEP_SECRET_KEY or BEEP_PUBLISHABLE_KEY must be set in apps/api/.env for MCP calls"), {
+      statusCode: 500, // Internal Server Error as this is a config issue
+    });
   }
 }
+
+function buildHeaders(sessionId?: string) {
+  const headers: Record<string, string> = {
+    "Content-Type": "application/json",
+    "X-Beep-Client": "beep-sdk",
+  };
+
+  if (AUTH_HEADER) headers["Authorization"] = AUTH_HEADER;
+  if (sessionId) headers["mcp-session-id"] = sessionId;
+  return headers;
+}
+
+async function initializeSession() {
+  requireAuthOrThrow();
+  const resp = await axios.post(
+    MCP_BASE_URL,
+    {
+      jsonrpc: "2.0",
+      id: "init",
+      method: "initialize",
+      params: {
+        clientInfo: { name: "a402-playground", version: "1.0.0" },
+      },
+    },
+    { headers: buildHeaders() }
+  );
+
+  const sessionId = resp.headers["mcp-session-id"] as string | undefined;
+  if (!sessionId) {
+    throw new Error("MCP initialize did not return mcp-session-id header");
+  }
+  return sessionId;
+}
+
+async function callToolsList(sessionId: string) {
+  requireAuthOrThrow();
+  const resp = await axios.post(
+    MCP_BASE_URL,
+    {
+      jsonrpc: "2.0",
+      id: "tools-list",
+      method: "tools/list",
+      params: {},
+    },
+    { headers: buildHeaders(sessionId) }
+  );
+
+  const newSessionId = (resp.headers["mcp-session-id"] as string) || sessionId;
+  return { data: resp.data, sessionId: newSessionId, status: resp.status };
+}
+
+async function callTool(sessionId: string, name: string, parameters: Record<string, unknown> = {}) {
+  requireAuthOrThrow();
+  const resp = await axios.post(
+    MCP_BASE_URL,
+    {
+      jsonrpc: "2.0",
+      id: `call-${name}`,
+      method: "tools/call",
+      params: {
+        name,
+        arguments: parameters,
+      },
+    },
+    { headers: buildHeaders(sessionId), validateStatus: () => true }
+  );
+
+  const newSessionId = (resp.headers["mcp-session-id"] as string) || sessionId;
+  return { data: resp.data, sessionId: newSessionId, status: resp.status }; // status may be 402
+}
+
+// GET /mcp/tools -> returns live tools list and sessionId to reuse
+mcpRouter.get("/tools", async (req: Request, res: Response) => {
+  try {
+    const existing = (req.query.sessionId as string) || undefined;
+    const sessionId = existing || await initializeSession();
+    const { data, sessionId: nextSessionId, status } = await callToolsList(sessionId);
+
+    return res.status(status).json({ sessionId: nextSessionId, tools: data?.result?.tools ?? data?.tools ?? data });
+  } catch (error) {
+    const axiosError = error as AxiosError & { statusCode?: number };
+    const status = axiosError.statusCode || axiosError.response?.status || 500;
+    return res.status(status).json({
+      error: axiosError.message,
+      details: axiosError.response?.data,
+      hint: !AUTH_HEADER ? "Set BEEP_SECRET_KEY or BEEP_PUBLISHABLE_KEY in apps/api/.env" : undefined,
+      target: MCP_BASE_URL,
+    });
+  }
+});
+
+// POST /mcp/call -> invoke a tool with parameters
+mcpRouter.post("/call", async (req: Request, res: Response) => {
+  const { sessionId: providedSessionId, name, parameters } = req.body as {
+    sessionId?: string;
+    name: string;
+    parameters?: Record<string, unknown>;
+  };
+
+  if (!name) {
+    return res.status(400).json({ error: "tool name is required" });
+  }
+
+  try {
+    const sessionId = providedSessionId || await initializeSession();
+    const result = await callTool(sessionId, name, parameters || {});
+
+    return res.status(result.status).json({
+      sessionId: result.sessionId,
+      status: result.status,
+      raw: result.data,
+      result: result.data?.result,
+      error: result.data?.error,
+    });
+  } catch (error) {
+    const axiosError = error as AxiosError & { statusCode?: number };
+    const status = axiosError.statusCode || axiosError.response?.status || 500;
+    return res.status(status).json({
+      error: axiosError.message,
+      details: axiosError.response?.data,
+      hint: !AUTH_HEADER ? "Set BEEP_SECRET_KEY or BEEP_PUBLISHABLE_KEY in apps/api/.env" : undefined,
+      target: MCP_BASE_URL,
+    });
+  }
+});

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFlowStore } from "@/stores/flow-store";
 import { cn } from "@/lib/utils";
 import { CodeSnippets } from "../code-snippets";
@@ -11,6 +11,7 @@ import { HistoryPanel } from "../history-panel";
 import { CodeExport } from "../code-export";
 import { WebhookPreview } from "../webhook-preview";
 import { Card, CardContent } from "@/components/ui/card";
+import { fetchTransaction } from "@/lib/sui-client";
 
 // Helper component for copiable values
 function CopyableValue({ value, displayValue, className }: { value: string; displayValue?: string; className?: string }) {
@@ -48,9 +49,30 @@ function CopyableValue({ value, displayValue, className }: { value: string; disp
 export function ResultsPanel() {
     const { receipt, challenge, debugLogs, apiCalls, currentStep, paymentHistory } = useFlowStore();
     const [activeTab, setActiveTab] = useState<"status" | "history">("status");
+    const [txData, setTxData] = useState<any | null>(null);
+    const [txLoading, setTxLoading] = useState(false);
+    const [txError, setTxError] = useState<string | null>(null);
 
     // Get recent logs (last 10)
     const recentLogs = debugLogs.slice(-10).reverse();
+
+    // Fetch Sui transaction details when a real digest is available
+    useEffect(() => {
+        const digest = receipt?.txHash;
+        const isSuiDigest = digest && /^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(digest);
+        if (!isSuiDigest) {
+            setTxData(null);
+            setTxError(null);
+            return;
+        }
+
+        setTxLoading(true);
+        setTxError(null);
+        fetchTransaction(digest)
+            .then((data) => setTxData(data))
+            .catch((err) => setTxError(err instanceof Error ? err.message : String(err)))
+            .finally(() => setTxLoading(false));
+    }, [receipt?.txHash]);
 
     return (
         <div className="h-full flex flex-col bg-muted/20 border-l border-border">
@@ -107,6 +129,36 @@ export function ResultsPanel() {
                                     <span className="text-muted-foreground">Network</span>
                                     <span className="font-mono text-accent">{receipt.chain}</span>
                                 </div>
+                                {/* Sui transaction details */}
+                                {receipt.txHash && (
+                                    <div className="mt-3 space-y-1 text-[11px]">
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-muted-foreground">Tx Hash</span>
+                                            <CopyableValue
+                                                value={receipt.txHash}
+                                                displayValue={
+                                                    receipt.txHash.length > 18
+                                                        ? `${receipt.txHash.slice(0, 10)}...${receipt.txHash.slice(-6)}`
+                                                        : receipt.txHash
+                                                }
+                                            />
+                                        </div>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-muted-foreground">On-chain Status</span>
+                                            {txLoading ? (
+                                                <span className="text-xs text-muted-foreground">Loading...</span>
+                                            ) : txError ? (
+                                                <span className="text-xs text-destructive">Unavailable</span>
+                                            ) : txData ? (
+                                                <span className="text-xs text-neon-green">
+                                                    {txData.effects?.status?.status || "success"}
+                                                </span>
+                                            ) : (
+                                                <span className="text-xs text-muted-foreground">Not fetched</span>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         </CardContent>
                     </Card>
@@ -267,4 +319,3 @@ export function ResultsPanel() {
         </div>
     );
 }
-

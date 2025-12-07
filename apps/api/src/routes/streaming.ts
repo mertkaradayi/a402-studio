@@ -3,9 +3,17 @@ import { BeepClient } from "@beep-it/sdk-core";
 
 export const streamingRouter = Router();
 
-// Initialize Beep Client
+// Initialize Beep Client with secret key (required for streaming APIs)
+const BEEP_SECRET_KEY = process.env.BEEP_SECRET_KEY || process.env.BEEP_API_KEY || "";
+const BEEP_SERVER_URL = process.env.BEEP_API_URL || "https://api.justbeep.it";
+
+if (!BEEP_SECRET_KEY) {
+  console.warn("[streaming] Missing BEEP_SECRET_KEY. Live streaming endpoints will fail.");
+}
+
 const beepClient = new BeepClient({
-  apiKey: process.env.BEEP_API_KEY || "",
+  apiKey: BEEP_SECRET_KEY,
+  serverUrl: BEEP_SERVER_URL,
 });
 
 // Simple in-memory cache for status checks (optional, but good for UI responsiveness)

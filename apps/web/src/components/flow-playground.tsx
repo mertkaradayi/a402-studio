@@ -22,8 +22,8 @@ type PlaygroundMode = "payment" | "streaming" | "mcp";
 
 export function FlowPlayground() {
   const { resetFlow, receipt, paymentMode, setPaymentMode, currentStep, resetSteps } = useFlowStore();
-  const { currentSession, isSimulationMode, setSimulationMode, resetSession } = useStreamingStore();
-  const { currentInvocation, resetMCP } = useMCPStore();
+  const { currentSession, isSimulationMode: isStreamingSim, setSimulationMode: setStreamingSim, resetSession } = useStreamingStore();
+  const { currentInvocation, resetMCP, isSimulationMode: isMCPSim, setSimulationMode: setMCPSim } = useMCPStore();
   const [playgroundMode, setPlaygroundMode] = useState<PlaygroundMode>("payment");
 
   const network = process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "mainnet" : "testnet";
@@ -96,52 +96,54 @@ export function FlowPlayground() {
               </button>
             </div>
 
-            {/* Sandbox/Live Toggle - Hidden for MCP mode (always simulation) */}
-            {playgroundMode !== "mcp" && (
-              <div className="flex items-center border border-border rounded-lg overflow-hidden bg-muted/50">
-                <button
-                  onClick={() => {
-                    if (playgroundMode === "payment") {
-                      setPaymentMode("simulation");
-                    } else {
-                      setSimulationMode(true);
-                    }
-                  }}
-                  className={cn(
-                    "px-3 py-1.5 text-sm font-medium transition-all relative",
-                    (playgroundMode === "payment" ? paymentMode === "simulation" : isSimulationMode)
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Sandbox
-                  {(playgroundMode === "payment" ? paymentMode === "simulation" : isSimulationMode) && (
-                    <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-primary rounded-full" />
-                  )}
-                </button>
-                <div className="w-px h-5 bg-border" />
-                <button
-                  onClick={() => {
-                    if (playgroundMode === "payment") {
-                      setPaymentMode("live");
-                    } else {
-                      setSimulationMode(false);
-                    }
-                  }}
-                  className={cn(
-                    "px-3 py-1.5 text-sm font-medium transition-all relative",
-                    (playgroundMode === "payment" ? paymentMode === "live" : !isSimulationMode)
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  Live
-                  {(playgroundMode === "payment" ? paymentMode === "live" : !isSimulationMode) && (
-                    <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-neon-green rounded-full" />
-                  )}
-                </button>
-              </div>
-            )}
+            {/* Sandbox/Live Toggle - Now visible for MCP too */}
+            <div className="flex items-center border border-border rounded-lg overflow-hidden bg-muted/50">
+              <button
+                onClick={() => {
+                  if (playgroundMode === "payment") {
+                    setPaymentMode("simulation");
+                  } else if (playgroundMode === "streaming") {
+                    setStreamingSim(true);
+                  } else {
+                    setMCPSim(true);
+                  }
+                }}
+                className={cn(
+                  "px-3 py-1.5 text-sm font-medium transition-all relative",
+                  (playgroundMode === "payment" ? paymentMode === "simulation" : playgroundMode === "streaming" ? isStreamingSim : isMCPSim)
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Sandbox
+                {(playgroundMode === "payment" ? paymentMode === "simulation" : playgroundMode === "streaming" ? isStreamingSim : isMCPSim) && (
+                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-primary rounded-full" />
+                )}
+              </button>
+              <div className="w-px h-5 bg-border" />
+              <button
+                onClick={() => {
+                  if (playgroundMode === "payment") {
+                    setPaymentMode("live");
+                  } else if (playgroundMode === "streaming") {
+                    setStreamingSim(false);
+                  } else {
+                    setMCPSim(false);
+                  }
+                }}
+                className={cn(
+                  "px-3 py-1.5 text-sm font-medium transition-all relative",
+                  (playgroundMode === "payment" ? paymentMode === "live" : playgroundMode === "streaming" ? !isStreamingSim : !isMCPSim)
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Live
+                {(playgroundMode === "payment" ? paymentMode === "live" : playgroundMode === "streaming" ? !isStreamingSim : !isMCPSim) && (
+                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-neon-green rounded-full" />
+                )}
+              </button>
+            </div>
           </div>
 
           {/* Right Actions */}
@@ -164,24 +166,24 @@ export function FlowPlayground() {
             {((playgroundMode === "payment" && (receipt || currentStep >= 0)) ||
               (playgroundMode === "streaming" && currentSession) ||
               (playgroundMode === "mcp" && currentInvocation)) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  if (playgroundMode === "payment") {
-                    resetFlow();
-                    resetSteps();
-                  } else if (playgroundMode === "streaming") {
-                    resetSession();
-                  } else {
-                    resetMCP();
-                  }
-                }}
-                className="text-muted-foreground hover:text-foreground"
-              >
-                Reset
-              </Button>
-            )}
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => {
+                    if (playgroundMode === "payment") {
+                      resetFlow();
+                      resetSteps();
+                    } else if (playgroundMode === "streaming") {
+                      resetSession();
+                    } else {
+                      resetMCP();
+                    }
+                  }}
+                  className="text-muted-foreground hover:text-foreground"
+                >
+                  Reset
+                </Button>
+              )}
           </div>
         </div>
 
