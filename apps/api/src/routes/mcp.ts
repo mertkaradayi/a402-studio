@@ -70,41 +70,97 @@ async function initializeSession() {
   }
 }
 
-async function callToolsList(sessionId: string) {
-  requireAuthOrThrow();
-  const resp = await axios.post(
-    MCP_BASE_URL,
-    {
-      jsonrpc: "2.0",
-      id: "tools-list",
-      method: "tools/list",
-      params: {},
-    },
-    { headers: buildHeaders(sessionId) }
-  );
+// Helper to retry calls if session fails (400/401)
+async function withSessionRetry<T>(
+  action: (sid: string) => Promise<{ data: any; sessionId: string; status: number }>,
+  initialSessionId: string
+) {
+  try {
+    return await action(initialSessionId);
+  } catch (error) {
+    const axiosError = error as AxiosError;
+    // If session invalid (400) or auth failed (401), try to re-init once
+    if (axiosError.response?.status === 400 || axiosError.response?.status === 401) {
+      console.log("[MCP] Session invalid/expired, re-initializing...");
+      const newSessionId = await initializeSession();
+      return await action(newSessionId);
+    }
+    throw error;
+  }
+}
 
-  const newSessionId = (resp.headers["mcp-session-id"] as string) || sessionId;
-  return { data: resp.data, sessionId: newSessionId, status: resp.status };
+async function callToolsList(sessionId: string) {
+  return withSessionRetry(async (sid) => {
+    requireAuthOrThrow();
+    const resp = await axios.post(
+      MCP_BASE_URL,
+      {
+        jsonrpc: "2.0",
+        id: "tools-list",
+        method: "tools/list",
+        params: {},
+      },
+      { headers: buildHeaders(sid) }
+    );
+
+    const newSessionId = (resp.headers["mcp-session-id"] as string) || sid;
+
+    // Handle SSE-wrapped response (Beep MCP returns "event: message\ndata: {...}")
+    let responseData = resp.data;
+    if (typeof responseData === "string" && responseData.includes("event: message") && responseData.includes("data: ")) {
+      try {
+        const dataLine = responseData.split("\n").find(line => line.startsWith("data: "));
+        if (dataLine) {
+          const jsonStr = dataLine.replace("data: ", "").trim();
+          responseData = JSON.parse(jsonStr);
+        }
+      } catch (e) {
+        console.error("[MCP] Failed to parse SSE response:", e);
+      }
+    }
+
+    // Also handle if the top-level 'tools' property is the string (as seen in user curl)
+    if (responseData && typeof responseData.tools === "string" && responseData.tools.startsWith("event:")) {
+      try {
+        const dataLine = responseData.tools.split("\n").find((line: string) => line.startsWith("data: "));
+        if (dataLine) {
+          const jsonStr = dataLine.replace("data: ", "").trim();
+          const parsed = JSON.parse(jsonStr);
+          // Merge parsed result back into responseData
+          if (parsed.result) responseData = { ...responseData, ...parsed.result };
+          else responseData = { ...responseData, ...parsed };
+          // Remove the raw string field
+          delete responseData.tools;
+        }
+      } catch (e) {
+        console.error("[MCP] Failed to parse SSE tools property:", e);
+      }
+    }
+
+    return { data: responseData, sessionId: newSessionId, status: resp.status };
+  }, sessionId);
 }
 
 async function callTool(sessionId: string, name: string, parameters: Record<string, unknown> = {}) {
-  requireAuthOrThrow();
-  const resp = await axios.post(
-    MCP_BASE_URL,
-    {
-      jsonrpc: "2.0",
-      id: `call-${name}`,
-      method: "tools/call",
-      params: {
-        name,
-        arguments: parameters,
+  return withSessionRetry(async (sid) => {
+    requireAuthOrThrow();
+    const resp = await axios.post(
+      MCP_BASE_URL,
+      {
+        jsonrpc: "2.0",
+        id: `call-${name}`,
+        method: "tools/call",
+        params: {
+          name,
+          arguments: parameters,
+        },
       },
-    },
-    { headers: buildHeaders(sessionId), validateStatus: () => true }
-  );
+      { headers: buildHeaders(sid), validateStatus: () => true }
+    );
 
-  const newSessionId = (resp.headers["mcp-session-id"] as string) || sessionId;
-  return { data: resp.data, sessionId: newSessionId, status: resp.status }; // status may be 402
+    const newSessionId = (resp.headers["mcp-session-id"] as string) || sid;
+    return { data: resp.data, sessionId: newSessionId, status: resp.status };
+  }, sessionId);
 }
 
 // GET /mcp/tools -> returns live tools list and sessionId to reuse
@@ -141,7 +197,14 @@ mcpRouter.post("/call", async (req: Request, res: Response) => {
 
   try {
     const sessionId = providedSessionId || await initializeSession();
-    const result = await callTool(sessionId, name, parameters || {});
+
+    // Auto-inject apiKey if required by tool and available in env
+    const finalParameters = { ...parameters };
+    if (!finalParameters.apiKey && BEEP_SECRET_KEY) {
+      finalParameters.apiKey = BEEP_SECRET_KEY;
+    }
+
+    const result = await callTool(sessionId, name, finalParameters);
 
     return res.status(result.status).json({
       sessionId: result.sessionId,
