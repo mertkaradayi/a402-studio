@@ -96,6 +96,16 @@ export interface APICall {
   duration?: number;
 }
 
+// Payment mode for playground
+export type PaymentMode = "simulation" | "live";
+
+// Step data for visualization
+export interface StepData {
+  title: string;
+  data: Record<string, unknown>;
+  timestamp: number;
+}
+
 interface FlowState {
   // App mode
   currentMode: AppMode;
@@ -134,6 +144,11 @@ interface FlowState {
   // Loading states
   isLoading: boolean;
 
+  // Simulation/Live mode
+  paymentMode: PaymentMode;
+  currentStep: number; // 0-4
+  stepData: Record<number, StepData>;
+
   // Actions - Mode
   setCurrentMode: (mode: AppMode) => void;
   setSelectedPreset: (preset: PresetScenario) => void;
@@ -167,6 +182,12 @@ interface FlowState {
   // Actions - Loading
   setLoading: (loading: boolean) => void;
 
+  // Actions - Simulation
+  setPaymentMode: (mode: PaymentMode) => void;
+  setCurrentStep: (step: number) => void;
+  setStepData: (step: number, data: StepData) => void;
+  resetSteps: () => void;
+
   // Actions - Reset
   resetFlow: () => void;
 }
@@ -194,6 +215,9 @@ export const useFlowStore = create<FlowState>((set) => ({
   inspectorInput: "",
   inspectorType: "receipt",
   isLoading: false,
+  paymentMode: "simulation",
+  currentStep: -1,
+  stepData: {},
 
   setCurrentMode: (mode) => set({ currentMode: mode }),
 
@@ -272,6 +296,17 @@ export const useFlowStore = create<FlowState>((set) => ({
 
   setLoading: (loading) => set({ isLoading: loading }),
 
+  setPaymentMode: (mode) => set({ paymentMode: mode }),
+
+  setCurrentStep: (step) => set({ currentStep: step }),
+
+  setStepData: (step, data) =>
+    set((state) => ({
+      stepData: { ...state.stepData, [step]: data },
+    })),
+
+  resetSteps: () => set({ currentStep: -1, stepData: {} }),
+
   resetFlow: () =>
     set({
       requestConfig: initialRequestConfig,
@@ -285,6 +320,8 @@ export const useFlowStore = create<FlowState>((set) => ({
       apiCalls: [],
       inspectorInput: "",
       isLoading: false,
+      currentStep: -1,
+      stepData: {},
     }),
 }));
 

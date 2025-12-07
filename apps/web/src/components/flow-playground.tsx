@@ -7,9 +7,10 @@ import { ResultsPanel } from "./panels/results-panel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
+import { StepIndicator } from "./step-indicator";
 
 export function FlowPlayground() {
-  const { resetFlow, receipt } = useFlowStore();
+  const { resetFlow, receipt, paymentMode, setPaymentMode, currentStep, resetSteps } = useFlowStore();
 
   const network = process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "mainnet" : "testnet";
 
@@ -33,6 +34,35 @@ export function FlowPlayground() {
 
           {/* Actions */}
           <div className="flex items-center gap-3">
+            {/* Mode Toggle (Simulation / Live) */}
+            <div className="flex items-center bg-muted rounded-lg p-0.5">
+              <button
+                onClick={() => setPaymentMode("simulation")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  paymentMode === "simulation"
+                    ? "bg-primary text-primary-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Simulation
+              </button>
+              <button
+                onClick={() => setPaymentMode("live")}
+                className={cn(
+                  "px-3 py-1.5 text-xs font-medium rounded-md transition-all",
+                  paymentMode === "live"
+                    ? "bg-neon-green text-black shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                Live
+              </button>
+            </div>
+
+            <div className="w-px h-6 bg-border" />
+
+            {/* Network Badge */}
             <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium border bg-muted">
               <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", network === 'mainnet' ? 'bg-neon-green' : 'bg-neon-yellow')} />
               <span className="uppercase">{network}</span>
@@ -44,23 +74,31 @@ export function FlowPlayground() {
 
             <WalletButton />
 
-            {receipt && (
+            {(receipt || currentStep >= 0) && (
               <>
                 <div className="w-px h-6 bg-border" />
                 <Button
                   variant="outline"
                   size="sm"
-                  onClick={resetFlow}
+                  onClick={() => {
+                    resetFlow();
+                    resetSteps();
+                  }}
                   className="hover:border-primary hover:text-primary transition-colors"
                 >
-                  Reset Flow
+                  Reset
                 </Button>
               </>
             )}
-
-            <div className="w-px h-6 bg-border" />
           </div>
         </div>
+
+        {/* Step Indicator - Show when steps are active */}
+        {currentStep >= 0 && (
+          <div className="px-6 pb-4 pt-2 border-t border-border/50 bg-muted/20">
+            <StepIndicator currentStep={currentStep} />
+          </div>
+        )}
       </header>
 
       {/* Main Content - 2 Column Layout */}

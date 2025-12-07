@@ -6,6 +6,7 @@ import { cn } from "@/lib/utils";
 import { CodeSnippets } from "../code-snippets";
 import { APIInspector } from "../api-inspector";
 import { ReferenceKeyLookup } from "../reference-key-lookup";
+import { StepDetail } from "../step-detail";
 import { Card, CardContent } from "@/components/ui/card";
 
 // Helper component for copiable values
@@ -42,7 +43,7 @@ function CopyableValue({ value, displayValue, className }: { value: string; disp
 }
 
 export function ResultsPanel() {
-    const { receipt, challenge, debugLogs, apiCalls } = useFlowStore();
+    const { receipt, challenge, debugLogs, apiCalls, currentStep } = useFlowStore();
 
     // Get recent logs (last 10)
     const recentLogs = debugLogs.slice(-10).reverse();
@@ -147,6 +148,19 @@ export function ResultsPanel() {
                             </p>
                         </CardContent>
                     </Card>
+                )}
+
+                {/* Step-by-Step Data - Show during simulation or live payment */}
+                {currentStep >= 0 && (
+                    <div className="mt-6">
+                        <h3 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2 px-1">
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                            </svg>
+                            Step Data
+                        </h3>
+                        <StepDetail />
+                    </div>
                 )}
 
                 {/* Code Snippets - Show after payment */}
