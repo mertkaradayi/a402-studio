@@ -67,7 +67,7 @@ export function FlowPlayground() {
       <div className="flex-1 flex overflow-hidden">
         {/* Left Column - Payment Widget (60%) */}
         <div className="w-full md:w-[60%] border-r border-border overflow-hidden bg-muted/20 relative">
-          <div className="absolute inset-0 bg-[radial-gradient(#36363B_1px,transparent_1px)] [background-size:16px_16px] opacity-[0.03] dark:opacity-[0.1]" />
+          <div className="absolute inset-0 bg-[radial-gradient(#36363B_1px,transparent_1px)] [background-size:16px_16px] opacity-[0.03] dark:opacity-[0.1] pointer-events-none" />
           <PaymentWidget />
         </div>
 

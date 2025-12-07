@@ -8,7 +8,8 @@ import {
     useWallets,
 } from "@mysten/dapp-kit";
 import { cn } from "@/lib/utils";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { createPortal } from "react-dom";
 import { Button } from "@/components/ui/button";
 
 // All supported Sui wallets with their info
@@ -102,17 +103,17 @@ export function WalletButton() {
                 Connect Wallet
             </Button>
 
-            {/* Modal */}
-            {showModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            {/* Modal - Portal to body for correct fixed positioning */}
+            {showModal && typeof document !== "undefined" && createPortal(
+                <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
                     {/* Backdrop */}
                     <div
-                        className="absolute inset-0 bg-background/80 backdrop-blur-sm"
+                        className="absolute inset-0 bg-black/60 backdrop-blur-sm"
                         onClick={() => setShowModal(false)}
                     />
 
                     {/* Modal Content */}
-                    <div className="relative bg-card border border-border rounded-xl shadow-2xl w-full max-w-md overflow-hidden max-h-[90vh] flex flex-col">
+                    <div className="relative z-10 bg-card border border-border rounded-xl shadow-2xl w-full max-w-md overflow-hidden max-h-[80vh] flex flex-col">
                         {/* Header */}
                         <div className="flex items-center justify-between px-6 py-4 border-b border-border bg-muted/30">
                             <div className="flex items-center gap-3">
@@ -202,7 +203,8 @@ export function WalletButton() {
                             </p>
                         </div>
                     </div>
-                </div>
+                </div>,
+                document.body
             )}
         </>
     );
