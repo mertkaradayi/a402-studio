@@ -48,7 +48,7 @@ beepRouter.post("/pay", async (req: Request, res: Response) => {
 
   try {
     const data = await beepClient.payments.requestAndPurchaseAsset({
-      assets,
+      assets: assets || [],
       paymentReference,
       paymentLabel,
       generateQrCode,
