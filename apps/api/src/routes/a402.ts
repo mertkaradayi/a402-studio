@@ -416,6 +416,11 @@ a402Router.post("/verify-onchain", async (req: Request, res: Response) => {
     challenge?: A402Challenge;
   };
 
+  // Guard against missing receipt/signature to avoid runtime errors
+  const signature = typeof receipt?.signature === "string" ? receipt.signature : "";
+  const txHash = typeof receipt?.txHash === "string" ? receipt.txHash : "";
+  const isBeepWidgetSignature = signature.startsWith("beep_widget_");
+
   console.log("[verify-onchain] Request received:", {
     receipt: receipt ? {
       id: receipt.id,
@@ -449,8 +454,9 @@ a402Router.post("/verify-onchain", async (req: Request, res: Response) => {
     receipt.payer &&
     receipt.merchant &&
     receipt.amount &&
-    receipt.txHash &&
-    receipt.chain
+    txHash &&
+    receipt.chain &&
+    signature
   );
 
   if (!checks.hasRequiredFields) {
@@ -476,8 +482,8 @@ a402Router.post("/verify-onchain", async (req: Request, res: Response) => {
 
   // Verify transaction exists on Sui (would need Sui RPC call)
   // For now, we'll trust the transaction hash format
-  const isSuiDigest = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(receipt.txHash);
-  checks.validTxFormat = isSuiDigest || receipt.txHash.startsWith("0x");
+  const isSuiDigest = /^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(txHash);
+  checks.validTxFormat = isSuiDigest || txHash.startsWith("0x") || isBeepWidgetSignature;
 
   if (!checks.validTxFormat) {
     errors.push("Invalid transaction hash format");
@@ -489,9 +495,10 @@ a402Router.post("/verify-onchain", async (req: Request, res: Response) => {
   // - Beep SDK payment with wallet (beep_sdk_ or beep_verified_ prefix)
   // - Raw Sui transaction digest
   checks.signatureValid =
-    receipt.signature.startsWith("sui_tx_") ||
-    receipt.signature.startsWith("beep_sdk_") ||
-    receipt.signature.startsWith("beep_verified_") ||
+    isBeepWidgetSignature || // Beep CheckoutWidget returns pre-verified signatures
+    signature.startsWith("sui_tx_") ||
+    signature.startsWith("beep_sdk_") ||
+    signature.startsWith("beep_verified_") ||
     isSuiDigest;
 
   const valid = Object.values(checks).every(Boolean) && errors.length === 0;

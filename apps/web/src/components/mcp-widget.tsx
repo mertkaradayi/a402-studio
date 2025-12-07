@@ -12,17 +12,15 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 const categoryBadge = (category?: MCPTool["category"]) => {
   switch (category) {
     case "free":
-      return "bg-emerald-500/10 text-emerald-500 border-emerald-500/20";
+      return "bg-neon-green/10 text-neon-green";
     case "paid":
-      return "bg-amber-500/10 text-amber-500 border-amber-500/20";
+      return "bg-neon-yellow/10 text-neon-yellow";
     case "streaming":
-      return "bg-purple-500/10 text-purple-500 border-purple-500/20";
+      return "bg-primary/10 text-primary";
     default:
-      return "bg-muted text-muted-foreground border-border";
+      return "bg-muted text-muted-foreground";
   }
 };
-
-
 
 export function MCPWidget() {
   const {
@@ -48,7 +46,6 @@ export function MCPWidget() {
     setSessionId,
     setToolsLoading,
     setToolsError,
-
     isSimulationMode,
   } = useMCPStore();
 
@@ -446,11 +443,11 @@ export function MCPWidget() {
   };
 
   const renderToolList = () => (
-    <div className="space-y-4">
+    <div className="space-y-5">
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-sm font-semibold text-foreground">Available Tools</h2>
-          <p className="text-xs text-muted-foreground">Fetched live from MCP</p>
+          <p className="text-xs text-muted-foreground mt-0.5">Fetched live from MCP</p>
         </div>
         {sessionId && (
           <span className="text-[10px] font-mono text-muted-foreground" title="mcp-session-id">
@@ -460,14 +457,14 @@ export function MCPWidget() {
       </div>
 
       {toolsLoading && (
-        <Card className="border-dashed border-border/50 bg-muted/30">
-          <CardContent className="p-4 text-xs text-muted-foreground">Loading tools…</CardContent>
-        </Card>
+        <div className="py-8 text-center text-sm text-muted-foreground">
+          Loading tools…
+        </div>
       )}
 
       {toolsError && (
-        <Card className="border-destructive/20 bg-destructive/5">
-          <CardContent className="p-4 text-xs text-destructive">{toolsError}</CardContent>
+        <Card className="border-destructive/20">
+          <CardContent className="p-4 text-sm text-destructive">{toolsError}</CardContent>
         </Card>
       )}
 
@@ -477,23 +474,23 @@ export function MCPWidget() {
             key={tool.name}
             onClick={() => handleSelectTool(tool)}
             className={cn(
-              "w-full p-3 rounded-lg border border-border/50 bg-card hover:bg-muted/50 text-left transition-all",
-              "hover:border-primary/20"
+              "w-full p-4 rounded-xl border border-border/60 bg-card text-left transition-all",
+              "hover:border-border hover:bg-muted/30"
             )}
           >
-            <div className="flex items-start justify-between gap-2">
+            <div className="flex items-start justify-between gap-3">
               <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-2">
                   <span className="font-mono text-sm font-medium text-foreground">{tool.name}</span>
                   {tool.category && tool.category !== "unknown" && (
-                    <span className={cn("px-1.5 py-0.5 rounded text-[10px] font-medium uppercase border", categoryBadge(tool.category))}>
+                    <span className={cn("px-1.5 py-0.5 rounded-md text-[10px] font-medium uppercase", categoryBadge(tool.category))}>
                       {tool.category}
                     </span>
                   )}
                 </div>
-                <p className="text-xs text-muted-foreground mt-1 line-clamp-2">{tool.description}</p>
+                <p className="text-xs text-muted-foreground mt-1.5 line-clamp-2">{tool.description}</p>
               </div>
-              <svg className="w-4 h-4 text-muted-foreground/50 flex-shrink-0 mt-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-muted-foreground/40 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
               </svg>
             </div>
@@ -511,9 +508,9 @@ export function MCPWidget() {
         <div className="flex items-center justify-between">
           <button
             onClick={handleReset}
-            className="flex items-center gap-1 text-sm text-muted-foreground hover:text-foreground transition-colors group"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
           >
-            <svg className="w-4 h-4 transition-transform group-hover:-translate-x-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
             </svg>
             Back
@@ -525,19 +522,19 @@ export function MCPWidget() {
           )}
         </div>
 
-        <Card className="border-border/50 bg-card shadow-sm">
-          <CardHeader className="pb-3 pt-4 px-4">
+        <Card>
+          <CardHeader className="pb-3">
             <div className="flex items-center justify-between">
               <CardTitle className="text-base font-mono">{selectedTool.name}</CardTitle>
               {selectedTool.category && selectedTool.category !== "unknown" && (
-                <span className={cn("px-2 py-0.5 rounded text-xs font-medium uppercase border", categoryBadge(selectedTool.category))}>
+                <span className={cn("px-2 py-0.5 rounded-md text-xs font-medium uppercase", categoryBadge(selectedTool.category))}>
                   {selectedTool.category}
                 </span>
               )}
             </div>
           </CardHeader>
           {selectedTool.description && (
-            <CardContent className="px-4 pb-4 pt-0">
+            <CardContent className="pt-0">
               <p className="text-sm text-muted-foreground leading-relaxed">{selectedTool.description}</p>
             </CardContent>
           )}
@@ -545,22 +542,21 @@ export function MCPWidget() {
 
         {selectedTool.parameters.length > 0 && (
           <div className="space-y-4">
-            <h3 className="text-sm font-medium text-foreground px-1">Parameters</h3>
-            <div className="space-y-3">
+            <h3 className="text-sm font-medium text-foreground">Parameters</h3>
+            <div className="space-y-4">
               {selectedTool.parameters.map((param) => (
-                <div key={param.name} className="space-y-1.5">
+                <div key={param.name} className="space-y-2">
                   <label className="text-xs font-medium flex items-center gap-2 text-muted-foreground">
                     <span className="font-mono text-foreground">{param.name}</span>
-                    <span>({param.type})</span>
+                    <span className="text-muted-foreground/70">({param.type})</span>
                     {param.required && <span className="text-primary">*</span>}
                   </label>
                   <Input
                     value={paramValues[param.name] || ""}
                     onChange={(e) => setParamValues({ ...paramValues, [param.name]: e.target.value })}
                     placeholder={param.description}
-                    className="font-mono text-sm bg-muted/30 border-border/50 focus:border-primary/50 focus:ring-primary/10 transition-all"
+                    className="font-mono text-sm"
                   />
-                  {param.description && <p className="text-[10px] text-muted-foreground px-1">{param.description}</p>}
                 </div>
               ))}
             </div>
@@ -574,15 +570,16 @@ export function MCPWidget() {
         )}
 
         {currentInvocation?.status === "invoking" && (
-          <div className="flex items-center justify-center py-4 text-sm text-muted-foreground animate-pulse">
+          <div className="flex items-center justify-center py-6 text-sm text-muted-foreground">
+            <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin mr-3" />
             Invoking...
           </div>
         )}
 
         {currentInvocation?.status === "awaiting_payment" && currentInvocation.paymentRequired && (
-          <Card className="border-amber-500/20 bg-amber-500/5">
-            <CardHeader className="pb-2">
-              <CardTitle className="text-sm text-amber-500 flex items-center gap-2">
+          <Card className="border-neon-yellow/30">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm text-neon-yellow flex items-center gap-2">
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
@@ -605,7 +602,7 @@ export function MCPWidget() {
                 {currentInvocation.paymentRequired.paymentUrl && (
                   <Button
                     variant="outline"
-                    className="flex-1 border-primary/20 hover:border-primary/50 hover:bg-primary/5"
+                    className="flex-1"
                     onClick={() => window.open(currentInvocation.paymentRequired!.paymentUrl, "_blank")}
                   >
                     Pay
@@ -620,14 +617,14 @@ export function MCPWidget() {
         )}
 
         {currentInvocation?.status === "complete" && !!currentInvocation.result && (
-          <Card className="border-border/50 bg-card overflow-hidden transition-all duration-300 animate-in fade-in slide-in-from-bottom-2">
-            <CardHeader className="bg-muted/30 border-b border-border/50 py-3">
+          <Card className="overflow-hidden">
+            <CardHeader className="bg-muted/30 border-b border-border/40 py-3">
               <div className="flex items-center gap-2">
                 <div className={cn(
                   "w-2 h-2 rounded-full",
-                  currentInvocation.status === "complete" ? "bg-neon-green shadow-[0_0_8px_rgba(34,197,94,0.4)]" :
-                    currentInvocation.status === "error" ? "bg-destructive shadow-[0_0_8px_rgba(239,68,68,0.4)]" :
-                      "bg-yellow-500 animate-pulse"
+                  currentInvocation.status === "complete" ? "bg-neon-green" :
+                    currentInvocation.status === "error" ? "bg-destructive" :
+                      "bg-neon-yellow animate-pulse"
                 )} />
                 <CardTitle className="text-sm font-medium flex items-center gap-2">
                   Result
@@ -642,14 +639,16 @@ export function MCPWidget() {
 
             <div className="p-0">
               {/* Tabs Header */}
-              <div className="flex border-b border-border/50 bg-muted/10">
+              <div className="flex border-b border-border/40">
                 {["Result", "Request", "cURL", "Raw"].map((tab) => (
                   <button
                     key={tab}
                     onClick={() => setActiveTab(tab.toLowerCase() as any)}
                     className={cn(
-                      "px-4 py-2 text-xs font-medium border-r border-border/50 transition-colors hover:bg-muted/20",
-                      activeTab === tab.toLowerCase() ? "bg-background text-primary border-b-2 border-b-primary" : "text-muted-foreground border-b-2 border-b-transparent"
+                      "px-4 py-2.5 text-xs font-medium transition-colors",
+                      activeTab === tab.toLowerCase()
+                        ? "text-foreground border-b-2 border-primary bg-muted/20"
+                        : "text-muted-foreground hover:text-foreground"
                     )}
                   >
                     {tab}
@@ -658,63 +657,57 @@ export function MCPWidget() {
               </div>
 
               <CardContent className="p-0">
-                <div className="bg-background/50 p-0 overflow-x-auto whitespace-pre-wrap break-all text-muted-foreground min-h-[120px] max-h-[400px] overflow-y-auto scrollbar-thin scrollbar-thumb-muted">
+                <div className="p-4 overflow-x-auto whitespace-pre-wrap break-all text-muted-foreground min-h-[120px] max-h-[400px] overflow-y-auto scrollbar-thin">
                   {activeTab === "result" && (
-                    <div className="p-4">
-                      <pre className="text-xs font-mono">
-                        {(() => {
-                          try {
-                            // Smart JSON parsing for nested content
-                            const resultAny = currentInvocation.result as any;
-                            const content = resultAny?.content;
-                            if (Array.isArray(content) && content[0]?.type === 'text' && typeof content[0]?.text === 'string') {
-                              const innerText = content[0].text.trim();
-                              if (innerText.startsWith('{') || innerText.startsWith('[')) {
-                                try {
-                                  const parsedInner = JSON.parse(innerText);
-                                  return JSON.stringify(parsedInner, null, 2);
-                                } catch { } // fallback
-                              }
+                    <pre className="text-xs font-mono">
+                      {(() => {
+                        try {
+                          // Smart JSON parsing for nested content
+                          const resultAny = currentInvocation.result as any;
+                          const content = resultAny?.content;
+                          if (Array.isArray(content) && content[0]?.type === 'text' && typeof content[0]?.text === 'string') {
+                            const innerText = content[0].text.trim();
+                            if (innerText.startsWith('{') || innerText.startsWith('[')) {
+                              try {
+                                const parsedInner = JSON.parse(innerText);
+                                return JSON.stringify(parsedInner, null, 2);
+                              } catch { } // fallback
                             }
-                            return JSON.stringify(currentInvocation.result, null, 2);
-                          } catch {
-                            return JSON.stringify(currentInvocation.result, null, 2);
                           }
-                        })()}
-                      </pre>
-                    </div>
+                          return JSON.stringify(currentInvocation.result, null, 2);
+                        } catch {
+                          return JSON.stringify(currentInvocation.result, null, 2);
+                        }
+                      })()}
+                    </pre>
                   )}
 
                   {activeTab === "request" && (
-                    <div className="p-4">
-                      <pre className="text-xs font-mono text-blue-400">
-                        {JSON.stringify(currentInvocation.requestBody || {}, null, 2)}
-                      </pre>
-                    </div>
+                    <pre className="text-xs font-mono text-neon-cyan">
+                      {JSON.stringify(currentInvocation.requestBody || {}, null, 2)}
+                    </pre>
                   )}
 
                   {activeTab === "curl" && (
-                    <div className="p-4 relative group">
-                      <pre className="text-xs font-mono text-purple-400 whitespace-pre-wrap break-all">
+                    <div className="relative group">
+                      <pre className="text-xs font-mono text-primary whitespace-pre-wrap break-all">
                         {currentInvocation.curlCommand || "No cURL available"}
                       </pre>
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="absolute top-2 right-2 h-6 w-6 opacity-0 group-hover:opacity-100 transition-opacity bg-background/80"
+                        className="absolute top-0 right-0 h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity"
                         onClick={() => navigator.clipboard.writeText(currentInvocation.curlCommand || "")}
                       >
-                        <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
                       </Button>
                     </div>
                   )}
 
                   {activeTab === "raw" && (
-                    <div className="p-4">
-                      <pre className="text-xs font-mono text-muted-foreground">
-                        {JSON.stringify(currentInvocation.raw, null, 2)}
-                      </pre>
-                    </div>
+                    <pre className="text-xs font-mono text-muted-foreground">
+                      {JSON.stringify(currentInvocation.raw, null, 2)}
+                    </pre>
                   )}
                 </div>
               </CardContent>
@@ -723,7 +716,7 @@ export function MCPWidget() {
         )}
 
         {currentInvocation?.status === "error" && (
-          <Card className="border-destructive/20 bg-destructive/5">
+          <Card className="border-destructive/20">
             <CardContent className="pt-4">
               <p className="text-sm text-destructive">{currentInvocation.error}</p>
             </CardContent>
@@ -734,25 +727,25 @@ export function MCPWidget() {
   };
 
   return (
-    <div className="h-full flex flex-col bg-background/50">
-      <div className="px-6 py-4 border-b border-border/50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+    <div className="h-full flex flex-col">
+      <div className="px-6 py-5 border-b border-border/40">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold tracking-tight text-foreground">MCP Inspector</h1>
-            <p className="text-sm text-muted-foreground">{isSimulationMode ? "Simulated tool execution" : "Live MCP connection"}</p>
+            <h1 className="text-lg font-semibold tracking-tight">MCP Inspector</h1>
+            <p className="text-sm text-muted-foreground mt-0.5">{isSimulationMode ? "Simulated tool execution" : "Live MCP connection"}</p>
           </div>
           <div className={cn(
-            "px-2.5 py-1 rounded text-xs font-medium transition-colors",
+            "px-2.5 py-1 rounded-lg text-xs font-medium",
             isSimulationMode
               ? "bg-muted text-muted-foreground"
-              : "bg-primary/10 text-primary border border-primary/20"
+              : "bg-neon-green/10 text-neon-green"
           )}>
             {isSimulationMode ? "Simulation" : "Live"}
           </div>
         </div>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
+      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
         <div className="max-w-xl mx-auto">
           {selectedTool ? renderInvocationForm() : renderToolList()}
         </div>

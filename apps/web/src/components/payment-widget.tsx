@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { CheckoutWidget } from "@beep-it/checkout-widget";
 import { useFlowStore } from "@/stores/flow-store";
 import { cn } from "@/lib/utils";
@@ -263,28 +263,34 @@ export function PaymentWidget() {
         setStep("error");
     }, [addDebugLog]);
 
-    const handleReset = () => {
+    const handleReset = useCallback(() => {
         setStep("config");
         setPaymentResult(null);
         setError(null);
+        setIsSimulating(false);
+        setSimulatedError(null);
         resetFlow();
         resetSteps();
-    };
+    }, [resetFlow, resetSteps]);
+
+    useEffect(() => {
+        handleReset();
+    }, [paymentMode, handleReset]);
 
     // Missing API key error (only for live mode)
     if (!BEEP_PUBLISHABLE_KEY && paymentMode === "live") {
         return (
             <div className="h-full flex items-center justify-center p-8">
-                <Card className="max-w-md text-center border-destructive/50 bg-destructive/10">
-                    <CardHeader>
-                        <div className="w-16 h-16 mx-auto rounded-2xl bg-destructive/20 flex items-center justify-center mb-4">
-                            <svg className="w-8 h-8 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <Card className="max-w-md text-center border-destructive/30">
+                    <CardHeader className="pb-4">
+                        <div className="w-14 h-14 mx-auto rounded-2xl bg-destructive/10 flex items-center justify-center mb-3">
+                            <svg className="w-7 h-7 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                             </svg>
                         </div>
-                        <CardTitle className="text-foreground">Configuration Required</CardTitle>
-                        <CardDescription>
-                            Set <code className="text-primary bg-muted px-1.5 py-0.5 rounded">NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY</code> for live payments.
+                        <CardTitle className="text-foreground text-lg">Configuration Required</CardTitle>
+                        <CardDescription className="mt-2">
+                            Set <code className="text-primary bg-muted px-1.5 py-0.5 rounded text-xs">NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY</code> for live payments.
                         </CardDescription>
                     </CardHeader>
                 </Card>
@@ -295,18 +301,18 @@ export function PaymentWidget() {
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="px-6 py-4 border-b border-border">
+            <div className="px-6 py-5 border-b border-border/40">
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-lg font-semibold tracking-tight">
                             {paymentMode === "simulation" ? "Sandbox" : "Payment"}
                         </h1>
-                        <p className="text-sm text-muted-foreground">
+                        <p className="text-sm text-muted-foreground mt-0.5">
                             {paymentMode === "simulation" ? "Simulated payment flow" : "USDC on Sui"}
                         </p>
                     </div>
                     <div className={cn(
-                        "px-2.5 py-1 rounded text-xs font-medium",
+                        "px-2.5 py-1 rounded-lg text-xs font-medium",
                         paymentMode === "simulation"
                             ? "bg-muted text-muted-foreground"
                             : network === "sui-mainnet"
@@ -319,9 +325,9 @@ export function PaymentWidget() {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
                 {step === "config" && (
-                    <div className="max-w-md mx-auto space-y-6">
+                    <div className="max-w-md mx-auto space-y-8">
                         {/* Quick Actions */}
                         <QuickActions
                             onSelectAmount={(amt, desc) => {
@@ -330,36 +336,37 @@ export function PaymentWidget() {
                             }}
                         />
 
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Amount (USDC)</label>
-                            <div className="relative">
+                        <div className="space-y-5">
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Amount (USDC)</label>
+                                <div className="relative">
+                                    <Input
+                                        type="text"
+                                        value={amount}
+                                        onChange={(e) => setAmount(e.target.value)}
+                                        className="h-14 text-lg font-mono pl-4 pr-16"
+                                        placeholder="0.01"
+                                    />
+                                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">
+                                        USDC
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div className="space-y-2">
+                                <label className="text-sm font-medium">Description</label>
                                 <Input
                                     type="text"
-                                    value={amount}
-                                    onChange={(e) => setAmount(e.target.value)}
-                                    className="h-14 text-lg font-mono pl-4 pr-16"
-                                    placeholder="0.01"
+                                    value={description}
+                                    onChange={(e) => setDescription(e.target.value)}
+                                    placeholder="What's this payment for?"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">
-                                    USDC
-                                </span>
                             </div>
-                        </div>
-
-                        <div className="space-y-2">
-                            <label className="text-sm font-medium">Description</label>
-                            <Input
-                                type="text"
-                                value={description}
-                                onChange={(e) => setDescription(e.target.value)}
-                                className="h-12"
-                                placeholder="What's this payment for?"
-                            />
                         </div>
 
                         {/* Error Scenarios - Simulation mode only */}
                         {paymentMode === "simulation" && (
-                            <div className="pt-2 border-t border-border">
+                            <div className="pt-4 border-t border-border/40">
                                 <ErrorScenarios
                                     onSelectScenario={(scenario) => setSimulatedError(scenario)}
                                 />
@@ -374,35 +381,37 @@ export function PaymentWidget() {
                             />
                         )}
 
-                        {paymentMode === "simulation" ? (
-                            <Button
-                                onClick={runSimulation}
-                                size="lg"
-                                className="w-full font-medium"
-                                disabled={!!simulatedError}
-                            >
-                                {simulatedError ? "Clear Error to Continue" : "Run Simulation"}
-                            </Button>
-                        ) : (
-                            <Button
-                                onClick={handleStartPayment}
-                                size="lg"
-                                className="w-full font-medium bg-neon-green hover:bg-neon-green/90 text-black"
-                            >
-                                Start Payment
-                            </Button>
-                        )}
+                        <div className="space-y-3 pt-2">
+                            {paymentMode === "simulation" ? (
+                                <Button
+                                    onClick={runSimulation}
+                                    size="lg"
+                                    className="w-full"
+                                    disabled={!!simulatedError}
+                                >
+                                    {simulatedError ? "Clear Error to Continue" : "Run Simulation"}
+                                </Button>
+                            ) : (
+                                <Button
+                                    onClick={handleStartPayment}
+                                    size="lg"
+                                    className="w-full bg-neon-green hover:bg-neon-green/90 text-black"
+                                >
+                                    Start Payment
+                                </Button>
+                            )}
 
-                        <p className="text-xs text-muted-foreground text-center">
-                            {paymentMode === "simulation"
-                                ? "Simulates the complete payment lifecycle"
-                                : "Pay via QR code or wallet connection"}
-                        </p>
+                            <p className="text-xs text-muted-foreground text-center">
+                                {paymentMode === "simulation"
+                                    ? "Simulates the complete payment lifecycle"
+                                    : "Pay via QR code or wallet connection"}
+                            </p>
+                        </div>
                     </div>
                 )}
 
                 {step === "simulating" && (
-                    <div className="max-w-md mx-auto space-y-6 text-center py-8">
+                    <div className="max-w-md mx-auto space-y-6 text-center py-12">
                         <div className="w-12 h-12 mx-auto border-2 border-primary/30 border-t-primary rounded-full animate-spin" />
                         <div>
                             <h2 className="text-lg font-semibold mb-1">Processing</h2>
@@ -418,8 +427,8 @@ export function PaymentWidget() {
 
                 {step === "paying" && (
                     <div className="max-w-md mx-auto space-y-6">
-                        <Card className="overflow-hidden shadow-xl border-border bg-white">
-                            <div className="p-1 bg-white">
+                        <Card className="overflow-hidden border-border/60 bg-white">
+                            <div className="p-1">
                                 <CheckoutWidget
                                     publishableKey={BEEP_PUBLISHABLE_KEY}
                                     primaryColor="#FF00ED"
@@ -440,39 +449,39 @@ export function PaymentWidget() {
                 )}
 
                 {step === "complete" && paymentResult && (
-                    <div className="max-w-md mx-auto space-y-6 text-center py-8">
-                        <div className="w-14 h-14 mx-auto bg-neon-green/10 rounded-full flex items-center justify-center border border-neon-green/20">
-                            <svg className="w-7 h-7 text-neon-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="max-w-md mx-auto space-y-6 text-center py-12">
+                        <div className="w-16 h-16 mx-auto bg-neon-green/10 rounded-2xl flex items-center justify-center">
+                            <svg className="w-8 h-8 text-neon-green" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                             </svg>
                         </div>
 
                         <div>
-                            <h2 className="text-lg font-semibold mb-1">
+                            <h2 className="text-xl font-semibold mb-1">
                                 {paymentMode === "simulation" ? "Simulation Complete" : "Payment Complete"}
                             </h2>
                             <p className="text-muted-foreground text-sm">
                                 {paymentMode === "simulation"
-                                    ? "All steps completed"
+                                    ? "All steps completed successfully"
                                     : "Verified by Beep"}
                             </p>
                         </div>
 
-                        <Card className="bg-muted/30 border-neon-green/20">
-                            <CardContent className="p-4 space-y-3 text-sm pt-4">
+                        <Card className="text-left">
+                            <CardContent className="p-4 space-y-3 text-sm">
                                 <div className="flex justify-between items-center">
                                     <span className="text-muted-foreground">Amount</span>
                                     <span className="font-mono text-neon-green font-medium">{paymentResult.totalAmount} USDC</span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-muted-foreground">Reference</span>
-                                    <span className="font-mono text-primary truncate max-w-[180px]" title={paymentResult.referenceKey}>
+                                    <span className="font-mono text-xs truncate max-w-[180px]" title={paymentResult.referenceKey}>
                                         {paymentResult.referenceKey?.slice(0, 16)}...
                                     </span>
                                 </div>
                                 <div className="flex justify-between items-center">
                                     <span className="text-muted-foreground">Status</span>
-                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-neon-green/10 text-neon-green uppercase">
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded-md text-xs font-medium bg-neon-green/10 text-neon-green uppercase">
                                         {paymentResult.status}
                                     </span>
                                 </div>
@@ -486,15 +495,15 @@ export function PaymentWidget() {
                 )}
 
                 {step === "error" && (
-                    <div className="max-w-md mx-auto space-y-6 text-center">
-                        <div className="w-16 h-16 mx-auto bg-destructive/10 rounded-full flex items-center justify-center">
+                    <div className="max-w-md mx-auto space-y-6 text-center py-12">
+                        <div className="w-16 h-16 mx-auto bg-destructive/10 rounded-2xl flex items-center justify-center">
                             <svg className="w-8 h-8 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </div>
                         <div>
-                            <h2 className="text-xl font-bold">Payment Failed</h2>
-                            <p className="text-sm text-destructive mt-2 bg-destructive/5 p-2 rounded border border-destructive/20">{error}</p>
+                            <h2 className="text-xl font-semibold">Payment Failed</h2>
+                            <p className="text-sm text-destructive mt-3 bg-destructive/5 p-3 rounded-lg">{error}</p>
                         </div>
                         <Button onClick={handleReset} variant="outline" className="w-full">
                             Try Again

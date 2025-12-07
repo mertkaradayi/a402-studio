@@ -292,7 +292,7 @@ export function StreamingWidget() {
       return (
         <div className="space-y-6">
           {/* Preset Selection */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <label className="text-sm font-medium">Select Scenario</label>
             <div className="grid grid-cols-3 gap-2">
               {PRESET_ASSETS.map((preset, idx) => (
@@ -305,8 +305,8 @@ export function StreamingWidget() {
                   className={cn(
                     "p-3 rounded-lg border text-sm font-medium transition-all",
                     !useCustom && selectedPreset === idx
-                      ? "border-primary bg-primary/10 text-primary"
-                      : "border-border hover:border-muted-foreground/50"
+                      ? "border-primary bg-primary/5 text-foreground"
+                      : "border-border/60 text-muted-foreground hover:border-border hover:text-foreground"
                   )}
                 >
                   {preset.name}
@@ -316,13 +316,13 @@ export function StreamingWidget() {
           </div>
 
           {/* Selected Assets Preview */}
-          <div className="space-y-2">
+          <div className="space-y-3">
             <label className="text-sm font-medium text-muted-foreground">Assets to Stream</label>
-            <div className="bg-muted/30 rounded-lg p-3 space-y-2">
+            <div className="bg-muted/30 rounded-xl p-4 space-y-2">
               {(useCustom ? customAssets : PRESET_ASSETS[selectedPreset].assets).map((asset, idx) => (
                 <div key={idx} className="flex items-center justify-between text-sm">
                   <span className="font-medium">{asset.name}</span>
-                  <span className="text-muted-foreground font-mono">
+                  <span className="text-muted-foreground font-mono text-xs">
                     {asset.unitPrice} USDC × {asset.quantity}
                   </span>
                 </div>
@@ -352,19 +352,19 @@ export function StreamingWidget() {
     return (
       <div className="space-y-6">
         {/* Session Info Card */}
-        <Card className="bg-muted/20 border-border">
-          <CardHeader className="pb-2">
+        <Card>
+          <CardHeader className="pb-3">
             <CardTitle className="text-sm font-medium flex items-center justify-between">
               <span>Session</span>
               <span
                 className={cn(
-                  "px-2 py-0.5 rounded text-xs font-medium uppercase",
-                  currentSession.state === "active" && "bg-neon-green/20 text-neon-green",
-                  currentSession.state === "paused" && "bg-neon-yellow/20 text-neon-yellow",
+                  "px-2 py-0.5 rounded-md text-xs font-medium uppercase",
+                  currentSession.state === "active" && "bg-neon-green/10 text-neon-green",
+                  currentSession.state === "paused" && "bg-neon-yellow/10 text-neon-yellow",
                   currentSession.state === "stopped" && "bg-muted text-muted-foreground",
-                  currentSession.state === "error" && "bg-destructive/20 text-destructive",
+                  currentSession.state === "error" && "bg-destructive/10 text-destructive",
                   (currentSession.state === "idle" || currentSession.state === "configuring") &&
-                    "bg-primary/20 text-primary"
+                  "bg-primary/10 text-primary"
                 )}
               >
                 {currentSession.state}
@@ -374,23 +374,23 @@ export function StreamingWidget() {
           <CardContent className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-muted-foreground">Invoice</span>
-              <span className="font-mono truncate max-w-[180px]">
+              <span className="font-mono text-xs truncate max-w-[180px]">
                 {currentSession.invoiceId || "Not created"}
               </span>
             </div>
             <div className="flex justify-between">
               <span className="text-muted-foreground">Merchant</span>
-              <span className="font-mono truncate max-w-[180px]">{currentSession.payingMerchantId}</span>
+              <span className="font-mono text-xs truncate max-w-[180px]">{currentSession.payingMerchantId}</span>
             </div>
           </CardContent>
         </Card>
 
         {/* Assets Being Streamed */}
-        <div className="space-y-2">
+        <div className="space-y-3">
           <label className="text-sm font-medium text-muted-foreground">Streaming Assets</label>
           <div className="space-y-2">
             {currentSession.assets.map((asset, idx) => (
-              <div key={idx} className="bg-muted/30 rounded-lg p-3 flex items-center justify-between">
+              <div key={idx} className="bg-muted/30 rounded-xl p-4 flex items-center justify-between">
                 <div>
                   <div className="font-medium text-sm">{asset.name}</div>
                   <div className="text-xs text-muted-foreground">{asset.description}</div>
@@ -449,7 +449,7 @@ export function StreamingWidget() {
 
         {/* Error Display */}
         {currentSession.error && (
-          <div className="bg-destructive/10 border border-destructive/30 rounded-lg p-3">
+          <div className="bg-destructive/5 border border-destructive/20 rounded-xl p-4">
             <p className="text-sm text-destructive">{currentSession.error}</p>
           </div>
         )}
@@ -460,17 +460,17 @@ export function StreamingWidget() {
   return (
     <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="px-6 py-4 border-b border-border">
+      <div className="px-6 py-5 border-b border-border/40">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">Streaming Payments</h1>
-            <p className="text-sm text-muted-foreground">
+            <p className="text-sm text-muted-foreground mt-0.5">
               {isSimulationMode ? "Simulated usage-based billing" : "Live streaming charges"}
             </p>
           </div>
           <div
             className={cn(
-              "px-2.5 py-1 rounded text-xs font-medium",
+              "px-2.5 py-1 rounded-lg text-xs font-medium",
               isSimulationMode ? "bg-muted text-muted-foreground" : "bg-neon-green/10 text-neon-green"
             )}
           >
@@ -480,7 +480,7 @@ export function StreamingWidget() {
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 overflow-y-auto p-6">
+      <div className="flex-1 overflow-y-auto p-6 scrollbar-thin">
         <div className="max-w-md mx-auto">{renderContent()}</div>
       </div>
     </div>

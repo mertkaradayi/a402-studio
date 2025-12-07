@@ -28,134 +28,127 @@ export function FlowPlayground() {
 
   const network = process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "mainnet" : "testnet";
 
+  const setSandboxMode = () => {
+    if (playgroundMode === "payment") {
+      if (paymentMode !== "simulation") {
+        resetFlow();
+        resetSteps();
+        setPaymentMode("simulation");
+      }
+    } else if (playgroundMode === "streaming") {
+      if (!isStreamingSim) {
+        resetSession();
+        setStreamingSim(true);
+      }
+    } else if (!isMCPSim) {
+      resetMCP();
+      setMCPSim(true);
+    }
+  };
+
+  const setLiveMode = () => {
+    if (playgroundMode === "payment") {
+      if (paymentMode !== "live") {
+        resetFlow();
+        resetSteps();
+        setPaymentMode("live");
+      }
+    } else if (playgroundMode === "streaming") {
+      if (isStreamingSim) {
+        resetSession();
+        setStreamingSim(false);
+      }
+    } else if (isMCPSim) {
+      resetMCP();
+      setMCPSim(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-background text-foreground">
       {/* Header */}
-      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
-        <div className="h-14 px-6 flex items-center justify-between">
+      <header className="border-b border-border/60 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+        <div className="h-16 px-6 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-              <svg className="w-4 h-4 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
+              <svg className="w-5 h-5 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
             <div className="flex items-baseline gap-2">
-              <span className="font-semibold tracking-tight">Beep</span>
-              <span className="text-muted-foreground text-sm font-medium">Playground</span>
+              <span className="font-semibold text-lg tracking-tight">Beep</span>
+              <span className="text-muted-foreground text-sm">Playground</span>
             </div>
           </div>
 
           {/* Center: Mode Toggle */}
-          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-4">
+          <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
             {/* Playground Mode Selector */}
-            <div className="flex items-center border border-border rounded-lg overflow-hidden bg-muted/50">
-              <button
-                onClick={() => setPlaygroundMode("payment")}
-                className={cn(
-                  "px-3 py-1.5 text-sm font-medium transition-all relative",
-                  playgroundMode === "payment"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Payment
-                {playgroundMode === "payment" && (
-                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-primary rounded-full" />
-                )}
-              </button>
-              <div className="w-px h-5 bg-border" />
-              <button
-                onClick={() => setPlaygroundMode("streaming")}
-                className={cn(
-                  "px-3 py-1.5 text-sm font-medium transition-all relative",
-                  playgroundMode === "streaming"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Streaming
-                {playgroundMode === "streaming" && (
-                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-purple-500 rounded-full" />
-                )}
-              </button>
-              <div className="w-px h-5 bg-border" />
-              <button
-                onClick={() => setPlaygroundMode("mcp")}
-                className={cn(
-                  "px-3 py-1.5 text-sm font-medium transition-all relative",
-                  playgroundMode === "mcp"
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                MCP
-                {playgroundMode === "mcp" && (
-                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-amber-500 rounded-full" />
-                )}
-              </button>
+            <div className="flex items-center bg-muted/50 rounded-lg p-1">
+              {(["payment", "streaming", "mcp"] as PlaygroundMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  onClick={() => setPlaygroundMode(mode)}
+                  className={cn(
+                    "px-4 py-1.5 text-sm font-medium rounded-md transition-all capitalize",
+                    playgroundMode === mode
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  {mode}
+                </button>
+              ))}
             </div>
 
-            {/* Sandbox/Live Toggle - Now visible for MCP too */}
-            <div className="flex items-center border border-border rounded-lg overflow-hidden bg-muted/50">
+            {/* Sandbox/Live Toggle */}
+            <div className="flex items-center bg-muted/50 rounded-lg p-1">
               <button
                 onClick={() => {
-                  if (playgroundMode === "payment") {
-                    setPaymentMode("simulation");
-                  } else if (playgroundMode === "streaming") {
-                    setStreamingSim(true);
-                  } else {
-                    setMCPSim(true);
-                  }
+                  setSandboxMode();
                 }}
                 className={cn(
-                  "px-3 py-1.5 text-sm font-medium transition-all relative",
+                  "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
                   (playgroundMode === "payment" ? paymentMode === "simulation" : playgroundMode === "streaming" ? isStreamingSim : isMCPSim)
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 Sandbox
-                {(playgroundMode === "payment" ? paymentMode === "simulation" : playgroundMode === "streaming" ? isStreamingSim : isMCPSim) && (
-                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-primary rounded-full" />
-                )}
               </button>
-              <div className="w-px h-5 bg-border" />
               <button
                 onClick={() => {
-                  if (playgroundMode === "payment") {
-                    setPaymentMode("live");
-                  } else if (playgroundMode === "streaming") {
-                    setStreamingSim(false);
-                  } else {
-                    setMCPSim(false);
-                  }
+                  setLiveMode();
                 }}
                 className={cn(
-                  "px-3 py-1.5 text-sm font-medium transition-all relative",
+                  "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5",
                   (playgroundMode === "payment" ? paymentMode === "live" : playgroundMode === "streaming" ? !isStreamingSim : !isMCPSim)
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
+                <span className={cn(
+                  "w-1.5 h-1.5 rounded-full",
+                  (playgroundMode === "payment" ? paymentMode === "live" : playgroundMode === "streaming" ? !isStreamingSim : !isMCPSim)
+                    ? "bg-neon-green"
+                    : "bg-muted-foreground/50"
+                )} />
                 Live
-                {(playgroundMode === "payment" ? paymentMode === "live" : playgroundMode === "streaming" ? !isStreamingSim : !isMCPSim) && (
-                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-neon-green rounded-full" />
-                )}
               </button>
             </div>
           </div>
 
           {/* Right Actions */}
-          <div className="flex items-center gap-2">
-            <div className={cn(
-              "text-xs px-2 py-1 rounded font-mono",
+          <div className="flex items-center gap-3">
+            <span className={cn(
+              "text-xs px-2.5 py-1 rounded-md font-mono",
               network === 'mainnet'
                 ? 'text-neon-green bg-neon-green/10'
                 : 'text-neon-yellow bg-neon-yellow/10'
             )}>
               {network}
-            </div>
+            </span>
 
             <SettingsDropdown />
 
@@ -189,7 +182,7 @@ export function FlowPlayground() {
 
         {/* Step Indicator - Payment mode only */}
         {playgroundMode === "payment" && currentStep >= 0 && (
-          <div className="px-6 pb-3 border-t border-border/50 bg-muted/10">
+          <div className="px-6 pb-4 pt-1">
             <StepIndicator currentStep={currentStep} />
           </div>
         )}
@@ -198,9 +191,8 @@ export function FlowPlayground() {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Widget Area */}
-        <div className="w-full md:w-[55%] border-r border-border overflow-hidden relative">
-          <div className="absolute inset-0 bg-[radial-gradient(#36363B_1px,transparent_1px)] [background-size:20px_20px] opacity-[0.02] dark:opacity-[0.08] pointer-events-none" />
-          {playgroundMode === "payment" && <PaymentWidget />}
+        <div className="w-full md:w-[55%] border-r border-border/40 overflow-hidden">
+          {playgroundMode === "payment" && <PaymentWidget key={paymentMode} />}
           {playgroundMode === "streaming" && <StreamingWidget />}
           {playgroundMode === "mcp" && <MCPWidget />}
         </div>
@@ -214,14 +206,14 @@ export function FlowPlayground() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-card/30 px-6 py-2">
+      <footer className="border-t border-border/40 bg-card/30 px-6 py-3">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-3">
             <span>Powered by <span className="font-medium text-foreground">Beep</span></span>
             <span className="text-border">•</span>
             <span>Sui Network</span>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-4">
             <a href="https://justbeep.it" target="_blank" rel="noopener noreferrer" className="hover:text-foreground transition-colors">
               Documentation
             </a>
