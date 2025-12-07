@@ -198,4 +198,33 @@
   .focus-ring {
     @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background;
   }
+
+  /* Minimal dither / noise overlay for dark sections */
+  .dither-surface {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .dither-surface::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: radial-gradient(circle at 1px 1px, rgba(255, 255, 255, 0.06) 1px, transparent 0),
+      radial-gradient(circle at 2px 2px, rgba(4, 217, 255, 0.04) 1px, transparent 0);
+    background-size: 8px 8px, 12px 12px;
+    opacity: 0.45;
+    mix-blend-mode: screen;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .dither-surface > * {
+    position: relative;
+    z-index: 1;
+  }
+
+  /* Soft glass card */
+  .glass {
+    @apply bg-white/5 border border-white/10 backdrop-blur-md;
+  }
 }

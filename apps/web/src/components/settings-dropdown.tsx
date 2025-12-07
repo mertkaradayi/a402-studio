@@ -1,21 +1,85 @@
 "use client";
 
-import { useState } from "react";
-import { useFlowStore } from "@/stores/flow-store";
+import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
+const ENV_PUBLISHABLE_KEY = (process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY || "").trim();
+const STORAGE_KEY = "beep:publishableKey";
+
 export function SettingsDropdown() {
     const [isOpen, setIsOpen] = useState(false);
-    const [apiKey, setApiKey] = useState(process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY || "");
+    const [apiKey, setApiKey] = useState(ENV_PUBLISHABLE_KEY);
     const [saved, setSaved] = useState(false);
+    const [copyState, setCopyState] = useState<"idle" | "copied" | "error">("idle");
+    const [isRevealed, setIsRevealed] = useState(false);
+    const [lastSavedKey, setLastSavedKey] = useState(ENV_PUBLISHABLE_KEY);
+
+    // Hydrate from local storage so the field remembers prior entries
+    useEffect(() => {
+        if (typeof window === "undefined") return;
+        const storedKey = window.localStorage.getItem(STORAGE_KEY);
+        if (storedKey && storedKey !== ENV_PUBLISHABLE_KEY) {
+            setApiKey(storedKey);
+            setLastSavedKey(storedKey);
+        }
+    }, []);
+
+    // Reset transient copy feedback when closing the dropdown
+    useEffect(() => {
+        if (!isOpen) {
+            setCopyState("idle");
+        }
+    }, [isOpen]);
+
+    const trimmedKey = apiKey.trim();
+    const hasKey = trimmedKey.length > 0;
+    const looksLikeKey = /^beep_[a-z0-9_:-]{12,}$/i.test(trimmedKey);
+    const copyEnabled = hasKey && looksLikeKey;
+    const loadedFromEnv = !!ENV_PUBLISHABLE_KEY && ENV_PUBLISHABLE_KEY === trimmedKey;
+    const hasUnsavedChanges = trimmedKey !== lastSavedKey.trim();
+
+    const maskedPreview = useMemo(() => {
+        if (!hasKey) return "Not configured";
+        if (trimmedKey.length <= 8) return `${trimmedKey.slice(0, 3)}...`;
+        return `${trimmedKey.slice(0, 6)}...${trimmedKey.slice(-4)}`;
+    }, [hasKey, trimmedKey]);
 
     const handleSave = () => {
-        // In a real app, this would update the config
-        // For now, we just show feedback
+        const valueToPersist = trimmedKey;
+
+        if (typeof window !== "undefined") {
+            if (valueToPersist) {
+                window.localStorage.setItem(STORAGE_KEY, valueToPersist);
+            } else {
+                window.localStorage.removeItem(STORAGE_KEY);
+            }
+        }
+
+        setLastSavedKey(valueToPersist);
         setSaved(true);
-        setTimeout(() => setSaved(false), 2000);
+        setTimeout(() => setSaved(false), 1800);
+    };
+
+    const handleCopy = async () => {
+        if (!copyEnabled) {
+            setCopyState("error");
+            return;
+        }
+
+        try {
+            if (typeof navigator === "undefined" || !navigator.clipboard) {
+                throw new Error("Clipboard API not available");
+            }
+
+            await navigator.clipboard.writeText(trimmedKey);
+            setCopyState("copied");
+            setTimeout(() => setCopyState("idle"), 1600);
+        } catch {
+            setCopyState("error");
+            setTimeout(() => setCopyState("idle"), 1600);
+        }
     };
 
     return (
@@ -42,62 +106,107 @@ export function SettingsDropdown() {
                     />
 
                     {/* Dropdown */}
-                    <div className="absolute right-0 top-full mt-2 w-80 z-50 bg-card border border-border rounded-lg shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
+                    <div className="absolute right-0 top-full mt-2 w-96 z-50 bg-card border border-border rounded-lg shadow-xl animate-in fade-in slide-in-from-top-2 duration-200">
                         <div className="p-4 border-b border-border">
                             <h3 className="font-semibold text-sm">Configuration</h3>
                             <p className="text-xs text-muted-foreground mt-0.5">
-                                Manage your Beep settings
+                                Manage credentials and runtime context
                             </p>
                         </div>
 
-                        <div className="p-4 space-y-4">
+                        <div className="p-4 space-y-5">
                             {/* API Key */}
                             <div className="space-y-2">
-                                <label className="text-xs font-medium flex items-center gap-2">
-                                    Publishable Key
-                                    {apiKey && (
-                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">
-                                            Configured
-                                        </span>
-                                    )}
-                                </label>
-                                <Input
-                                    type="password"
-                                    value={apiKey}
-                                    onChange={(e) => setApiKey(e.target.value)}
-                                    placeholder="beep_pk_..."
-                                    className="h-9 text-xs font-mono"
-                                />
-                                <p className="text-[10px] text-muted-foreground">
-                                    Get your key from{" "}
+                                <div className="flex items-center justify-between text-xs font-medium">
+                                    <div className="flex items-center gap-2">
+                                        <span>Publishable Key</span>
+                                        {hasKey ? (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-neon-green/10 text-neon-green">
+                                                {loadedFromEnv ? "From env" : "Saved locally"}
+                                            </span>
+                                        ) : (
+                                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-amber-500/10 text-amber-400">
+                                                Required for live
+                                            </span>
+                                        )}
+                                    </div>
+                                    <span className="text-[10px] text-muted-foreground font-mono">{maskedPreview}</span>
+                                </div>
+
+                                <div className="flex gap-2">
+                                    <Input
+                                        type={isRevealed ? "text" : "password"}
+                                        value={apiKey}
+                                        onChange={(e) => setApiKey(e.target.value)}
+                                        placeholder="beep_pk_..."
+                                        className="h-9 text-xs font-mono"
+                                    />
+                                    <Button
+                                        variant="outline"
+                                        size="icon"
+                                        onClick={() => setIsRevealed(!isRevealed)}
+                                        aria-label={isRevealed ? "Hide key" : "Reveal key"}
+                                    >
+                                        {isRevealed ? "Hide" : "Show"}
+                                    </Button>
+                                    <Button
+                                        variant="outline"
+                                        size="sm"
+                                        onClick={handleCopy}
+                                        disabled={!copyEnabled}
+                                        className={cn(
+                                            "px-3",
+                                            copyState === "copied" && "bg-neon-green/10 text-neon-green",
+                                            copyState === "error" && "bg-destructive/10 text-destructive"
+                                        )}
+                                    >
+                                        {copyState === "copied" ? "Copied" : "Copy"}
+                                    </Button>
+                                </div>
+
+                                <div className="flex items-start justify-between text-[10px] text-muted-foreground">
+                                    <p className="max-w-[70%]">
+                                        {hasKey
+                                            ? looksLikeKey
+                                                ? "Key looks valid. Copy is available - keep it safe and rotate in env for production."
+                                                : "This doesn't look like a full Beep publishable key (expected beep_pk_*)."}
+                                            : "Add your Beep publishable key to run live flows and copy it on demand."}
+                                    </p>
                                     <a
                                         href="https://app.justbeep.it"
                                         target="_blank"
                                         rel="noopener noreferrer"
                                         className="text-primary hover:underline"
                                     >
-                                        app.justbeep.it
+                                        Get key ->
                                     </a>
-                                </p>
+                                </div>
                             </div>
 
                             {/* Environment Info */}
-                            <div className="space-y-2">
-                                <label className="text-xs font-medium">Environment</label>
-                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                    <div className="p-2 rounded bg-muted/50">
+                            <div className="grid grid-cols-2 gap-2 text-xs">
+                                <div className="p-3 rounded bg-muted/50 border border-border/60">
+                                    <div className="flex items-center justify-between">
                                         <span className="text-muted-foreground">Network</span>
-                                        <p className="font-mono text-neon-green">SUI Mainnet</p>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-primary/10 text-primary">SUI</span>
                                     </div>
-                                    <div className="p-2 rounded bg-muted/50">
+                                    <p className="mt-1 font-mono text-neon-green">
+                                        {process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "Mainnet" : "Testnet"}
+                                    </p>
+                                </div>
+                                <div className="p-3 rounded bg-muted/50 border border-border/60">
+                                    <div className="flex items-center justify-between">
                                         <span className="text-muted-foreground">SDK</span>
-                                        <p className="font-mono">@beep-it/sdk</p>
+                                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-white/5 text-foreground">
+                                            @beep-it/sdk
+                                        </span>
                                     </div>
+                                    <p className="mt-1 font-mono text-foreground/80">Widget + API</p>
                                 </div>
                             </div>
 
                             {/* API Status */}
-                            <div className="flex items-center justify-between p-2 rounded bg-muted/50">
+                            <div className="flex items-center justify-between p-3 rounded bg-muted/50 border border-border/60">
                                 <span className="text-xs text-muted-foreground">Beep API</span>
                                 <span className="flex items-center gap-1.5 text-xs">
                                     <span className="w-2 h-2 rounded-full bg-neon-green animate-pulse" />
@@ -112,14 +221,18 @@ export function SettingsDropdown() {
                                 size="sm"
                                 onClick={() => setIsOpen(false)}
                             >
-                                Cancel
+                                Close
                             </Button>
                             <Button
                                 size="sm"
                                 onClick={handleSave}
-                                className={cn(saved && "bg-neon-green text-black")}
+                                disabled={!hasUnsavedChanges}
+                                className={cn(
+                                    saved && "bg-neon-green text-black",
+                                    !hasUnsavedChanges && "opacity-80"
+                                )}
                             >
-                                {saved ? "Saved!" : "Save"}
+                                {saved ? "Saved" : hasUnsavedChanges ? "Save" : "Up to date"}
                             </Button>
                         </div>
                     </div>

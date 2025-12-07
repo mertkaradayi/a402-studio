@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
+import Link from "next/link";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { ThemeProvider } from "@/components/theme-provider";
@@ -28,6 +29,13 @@ export default function RootLayout({
           enableSystem
           disableTransitionOnChange
         >
+          <Link
+            href="/beep"
+            className="fixed right-4 top-4 z-50 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/70 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-lg shadow-black/40 backdrop-blur-md transition hover:-translate-y-0.5 hover:border-neon-cyan hover:text-neon-cyan"
+          >
+            Beep Story
+            <span aria-hidden>↗</span>
+          </Link>
           <Providers>{children}</Providers>
         </ThemeProvider>
       </body>

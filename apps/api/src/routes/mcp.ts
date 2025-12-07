@@ -40,6 +40,31 @@ function buildHeaders(sessionId?: string) {
   return headers;
 }
 
+function extractText(value: any): string | undefined {
+  if (!value) return undefined;
+  if (typeof value === "string") return value;
+  if (value?.message && typeof value.message === "string") return value.message;
+  return undefined;
+}
+
+function deriveHint(message?: string, details?: any, toolName?: string) {
+  const text = [message, typeof details === "string" ? details : JSON.stringify(details || {})]
+    .filter(Boolean)
+    .join(" ")
+    .toLowerCase();
+
+  // Privy/SUI wallet balance failures: upstream returns 400 when chain not enabled
+  if (toolName?.includes("wallet") && text.includes("privy") && text.includes("balance")) {
+    return "Wallet balance provider rejected the request (often Sui not enabled). Enable Sui in the provider or add an RPC fallback for this chain.";
+  }
+
+  if (text.includes("payment required")) {
+    return "Tool needs payment or reference; supply paymentReference or complete the checkout flow.";
+  }
+
+  return undefined;
+}
+
 async function initializeSession() {
   // requireAuthOrThrow(); // Relaxed: Allow init without keys (upstream might allow it)
   try {
@@ -177,7 +202,11 @@ mcpRouter.get("/tools", async (req: Request, res: Response) => {
     const sessionId = existing || await initializeSession();
     const { data, sessionId: nextSessionId, status } = await callToolsList(sessionId);
 
-    return res.status(status).json({ sessionId: nextSessionId, tools: data?.result?.tools ?? data?.tools ?? data });
+    return res.status(status).json({
+      sessionId: nextSessionId,
+      tools: data?.result?.tools ?? data?.tools ?? data,
+      target: MCP_BASE_URL,
+    });
   } catch (error) {
     const axiosError = error as AxiosError & { statusCode?: number };
     const status = axiosError.statusCode || axiosError.response?.status || 500;
@@ -185,6 +214,29 @@ mcpRouter.get("/tools", async (req: Request, res: Response) => {
       error: axiosError.message,
       details: axiosError.response?.data,
       hint: !AUTH_HEADER ? "Set BEEP_SECRET_KEY or BEEP_PUBLISHABLE_KEY in apps/api/.env" : undefined,
+      target: MCP_BASE_URL,
+    });
+  }
+});
+
+// Lightweight health check that initializes once and lists tools
+mcpRouter.get("/health", async (_req: Request, res: Response) => {
+  try {
+    const sessionId = await initializeSession();
+    const { data, sessionId: nextSessionId, status } = await callToolsList(sessionId);
+    return res.status(status).json({
+      ok: status >= 200 && status < 300,
+      sessionId: nextSessionId,
+      toolCount: (data?.result?.tools ?? data?.tools ?? []).length || 0,
+      target: MCP_BASE_URL,
+    });
+  } catch (error) {
+    const axiosError = error as AxiosError & { statusCode?: number };
+    const status = axiosError.statusCode || axiosError.response?.status || 500;
+    return res.status(status).json({
+      ok: false,
+      error: axiosError.message,
+      details: axiosError.response?.data,
       target: MCP_BASE_URL,
     });
   }
@@ -212,6 +264,8 @@ mcpRouter.post("/call", async (req: Request, res: Response) => {
     }
 
     const result = await callTool(sessionId, name, finalParameters);
+    const errorMessage = extractText(result.data?.error) || (typeof result.data === "string" ? result.data : undefined);
+    const hint = deriveHint(errorMessage, result.data?.error || result.data, name);
 
     return res.status(result.status).json({
       sessionId: result.sessionId,
@@ -219,14 +273,18 @@ mcpRouter.post("/call", async (req: Request, res: Response) => {
       raw: result.data,
       result: result.data?.result,
       error: result.data?.error,
+      hint,
+      target: MCP_BASE_URL,
     });
   } catch (error) {
     const axiosError = error as AxiosError & { statusCode?: number };
     const status = axiosError.statusCode || axiosError.response?.status || 500;
+    const message = axiosError.message || extractText(axiosError.response?.data) || "MCP call failed";
+    const hint = deriveHint(message, axiosError.response?.data, name);
     return res.status(status).json({
-      error: axiosError.message,
+      error: message,
       details: axiosError.response?.data,
-      hint: !AUTH_HEADER ? "Set BEEP_SECRET_KEY or BEEP_PUBLISHABLE_KEY in apps/api/.env" : undefined,
+      hint: hint || (!AUTH_HEADER ? "Set BEEP_SECRET_KEY or BEEP_PUBLISHABLE_KEY in apps/api/.env" : undefined),
       target: MCP_BASE_URL,
     });
   }

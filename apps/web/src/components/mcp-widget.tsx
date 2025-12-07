@@ -51,6 +51,7 @@ export function MCPWidget() {
 
   const [paramValues, setParamValues] = useState<Record<string, string>>({});
   const [activeTab, setActiveTab] = useState<"result" | "request" | "curl" | "raw">("result");
+  const [mcpTarget, setMcpTarget] = useState<string | null>(null);
 
   // Fetch tools (Live vs Simulation)
   useEffect(() => {
@@ -165,6 +166,7 @@ export function MCPWidget() {
 
         setTools(parsedTools);
         if (data.sessionId) setSessionId(data.sessionId);
+        if (data.target) setMcpTarget(data.target as string);
       } catch (err) {
         if (cancelled) return;
         setToolsError(err instanceof Error ? err.message : "Unknown error");
@@ -380,6 +382,7 @@ export function MCPWidget() {
       if (steps[0]) updateFlowStepStatus(steps[0].id, "complete");
 
       if (data.sessionId) setSessionId(data.sessionId);
+      if (data.target) setMcpTarget(data.target as string);
 
       if (resp.status === 402) {
         const payment = data.raw?.payment || data.raw?.result?.payment || data.raw?.paymentRequired || data.raw;
@@ -418,7 +421,16 @@ export function MCPWidget() {
 
         setInvocationResult(resultPayload);
       } else {
-        throw new Error(data?.error || "Invocation failed");
+        const hint = data?.hint as string | undefined;
+        const errorMsg = (data?.error as string | undefined) || `Invocation failed (HTTP ${resp.status})`;
+        const combined = hint ? `${errorMsg} — Hint: ${hint}` : errorMsg;
+        addLog({
+          type: "error",
+          direction: "server_to_client",
+          title: "Tool Error",
+          data: { error: data?.error, hint: data?.hint, details: data?.details, status: resp.status },
+        });
+        setInvocationError(combined);
       }
     } catch (err) {
       const message = err instanceof Error ? err.message : "Unknown error";
@@ -732,7 +744,14 @@ export function MCPWidget() {
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-lg font-semibold tracking-tight">MCP Inspector</h1>
-            <p className="text-sm text-muted-foreground mt-0.5">{isSimulationMode ? "Simulated tool execution" : "Live MCP connection"}</p>
+            <p className="text-sm text-muted-foreground mt-0.5">
+              {isSimulationMode ? "Simulated tool execution" : "Live MCP connection"}
+              {mcpTarget && !isSimulationMode && (
+                <span className="ml-2 font-mono text-[11px] text-muted-foreground/80" title="MCP target">
+                  {mcpTarget}
+                </span>
+              )}
+            </p>
           </div>
           <div className={cn(
             "px-2.5 py-1 rounded-lg text-xs font-medium",
