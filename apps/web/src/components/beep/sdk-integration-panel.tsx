@@ -125,11 +125,11 @@ export function SdkIntegrationPanel() {
             addDebugLog("info", `Reference Key: ${sessionResult.referenceKey}`);
             addDebugLog("info", `Payment URL: ${sessionResult.paymentUrl.slice(0, 50)}...`);
 
-            // Set challenge for display
+            // Set challenge for display - use destinationAddress as recipient (where payment goes)
             const challenge = {
                 amount,
                 asset: "USDC",
-                recipient: account.address,
+                recipient: result.destinationAddress || account.address,  // Beep's destination, not our wallet
                 chain: network,
                 nonce: sessionResult.referenceKey,
                 expiry: Math.floor(Date.now() / 1000) + 3600,
@@ -296,7 +296,9 @@ export function SdkIntegrationPanel() {
                 asset: "USDC",
                 chain: network,
                 txHash: result.digest,
-                signature: `sui_tx_${result.digest.slice(0, 16)}`,
+                // Use beep_sdk_ prefix to indicate this is a Beep payment session
+                // This will route to Beep API verification, not onchain
+                signature: `beep_sdk_${session.referenceKey}_${result.digest.slice(0, 8)}`,
                 issuedAt: Math.floor(Date.now() / 1000),
             };
 
