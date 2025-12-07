@@ -12,6 +12,7 @@ import { ErrorScenarios, ErrorDisplay, ErrorScenario } from "./error-scenarios";
 import { QuickActions } from "./quick-actions";
 
 const BEEP_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY || "";
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
 
 interface PaymentResult {
     referenceKey?: string;
@@ -33,16 +34,40 @@ type OnChainState =
     | { status: "failed"; txHash?: string; explorerUrl?: string; message?: string }
     | { status: "skipped"; message: string };
 
-function extractTxHash(data: PaymentResult): string | undefined {
-    const candidates = [
-        data.txHash,
-        (data as Record<string, string | undefined>).transactionHash,
-        (data as Record<string, string | undefined>).transactionDigest,
-        (data as Record<string, string | undefined>).digest,
-        (data as Record<string, string | undefined>).tx,
+function isValidSuiTxHash(hash?: string | null): boolean {
+    return typeof hash === "string" && /^[1-9A-HJ-NP-Za-km-z]{43,44}$/.test(hash);
+}
+
+function extractTxHashFromAny(data: unknown): string | undefined {
+    if (!data || typeof data !== "object") return undefined;
+    const record = data as Record<string, unknown>;
+
+    const candidates: Array<unknown> = [
+        record.txHash,
+        record.tx_hash,
+        record.transactionHash,
+        record.transactionDigest,
+        record.digest,
+        record.tx,
+        record.txSignature,
+        record.tx_signature,
+        (record.receipt as Record<string, unknown> | undefined)?.txHash,
+        (record.receipt as Record<string, unknown> | undefined)?.tx_hash,
+        (record.details as Record<string, unknown> | undefined)?.txHash,
+        (record.details as Record<string, unknown> | undefined)?.tx_hash,
     ];
 
-    return candidates.find((value) => typeof value === "string" && value.length > 0);
+    for (const candidate of candidates) {
+        if (typeof candidate === "string" && candidate.length > 0) {
+            return candidate;
+        }
+    }
+
+    return undefined;
+}
+
+function extractTxHash(data: PaymentResult): string | undefined {
+    return extractTxHashFromAny(data);
 }
 
 // Mock data generator for simulation
@@ -131,6 +156,37 @@ export function PaymentWidget() {
     const [description, setDescription] = useState("Beep Payment");
 
     const network = process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "sui-mainnet" : "sui-testnet";
+
+    const fetchBackendTxHash = useCallback(async (referenceKey: string) => {
+        if (!referenceKey) {
+            return { txHash: undefined, error: "Missing reference key" };
+        }
+
+        try {
+            const response = await fetch(`${API_URL}/a402/verify-beep`, {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                },
+                body: JSON.stringify({
+                    receipt: { requestNonce: referenceKey },
+                }),
+            });
+
+            const data = await response.json().catch(() => ({}));
+            const txHash = extractTxHashFromAny(data) || extractTxHashFromAny((data as Record<string, unknown> | undefined)?.details);
+
+            if (txHash) {
+                addDebugLog("info", `📦 Retrieved tx hash from backend: ${txHash.slice(0, 14)}...`);
+            }
+
+            return { txHash: txHash ?? undefined };
+        } catch (error) {
+            const message = error instanceof Error ? error.message : "Unknown error";
+            addDebugLog("warning", `⚠️ Could not fetch tx hash from backend: ${message}`);
+            return { txHash: undefined, error: message };
+        }
+    }, [addDebugLog]);
 
     // Run simulation with auto-advancing steps
     const runSimulation = useCallback(async () => {
@@ -297,57 +353,77 @@ export function PaymentWidget() {
         addDebugLog("success", "🎉 Payment confirmed by Beep!");
 
         setTimeout(() => {
-            const referenceKey = paymentData.referenceKey || "";
-            const destinationAddress = paymentData.destinationAddress || "";
-            const finalAmount = String(paymentData.totalAmount || amount);
-            const txHash = extractTxHash(paymentData);
-            const explorerUrl = txHash ? getSuiExplorerUrl(txHash, network) : undefined;
+            void (async () => {
+                const referenceKey = paymentData.referenceKey || "";
+                const destinationAddress = paymentData.destinationAddress || "";
+                const finalAmount = String(paymentData.totalAmount || amount);
+                const initialTxHash = extractTxHash(paymentData);
 
-            const receipt = {
-                id: `rcpt_${Date.now()}`,
-                requestNonce: referenceKey,
-                payer: "Verified by Beep",
-                merchant: destinationAddress,
-                amount: finalAmount,
-                asset: "USDC",
-                chain: network,
-                txHash: txHash || `beep_widget_${referenceKey}`,
-                signature: `beep_widget_verified_${referenceKey}`,
-                issuedAt: Math.floor(Date.now() / 1000),
-            };
+                // Try to obtain a real Sui tx hash from backend if the widget didn't return one
+                const backendLookup = referenceKey ? await fetchBackendTxHash(referenceKey) : { txHash: undefined };
+                const resolvedTxHash = isValidSuiTxHash(initialTxHash)
+                    ? initialTxHash
+                    : (isValidSuiTxHash(backendLookup.txHash) ? backendLookup.txHash : undefined);
 
-            setCurrentStep(2);
-            setStepData(2, { title: "Receipt Received", data: receipt, timestamp: Date.now() });
-            setReceipt(receipt, JSON.stringify(receipt, null, 2));
+                const displayTxHash = resolvedTxHash || initialTxHash || backendLookup.txHash || (referenceKey ? `beep_widget_${referenceKey}` : undefined);
+                const safeTxHash = displayTxHash ?? `beep_widget_${referenceKey || "unknown"}`;
+                const explorerUrl = resolvedTxHash ? getSuiExplorerUrl(resolvedTxHash, network) : undefined;
 
-            setTimeout(() => {
-                setCurrentStep(3);
-                setStepData(3, {
-                    title: "Verification Complete",
-                    data: { valid: true, method: "beep_api", verifiedAt: new Date().toISOString() },
-                    timestamp: Date.now(),
-                });
-                addDebugLog("success", "✅ Payment verified by Beep");
-                void runOnChainVerification(txHash, destinationAddress, finalAmount);
+                const receipt = {
+                    id: `rcpt_${Date.now()}`,
+                    requestNonce: referenceKey,
+                    payer: "Verified by Beep",
+                    merchant: destinationAddress,
+                    amount: finalAmount,
+                    asset: "USDC",
+                    chain: network,
+                    txHash: safeTxHash,
+                    signature: `beep_widget_verified_${referenceKey}`,
+                    issuedAt: Math.floor(Date.now() / 1000),
+                };
+
+                setCurrentStep(2);
+                setStepData(2, { title: "Receipt Received", data: receipt, timestamp: Date.now() });
+                setReceipt(receipt, JSON.stringify(receipt, null, 2));
 
                 setTimeout(() => {
-                    setCurrentStep(4);
-                    setStepData(4, {
-                        title: "Payment Complete",
-                        data: { status: "paid", ...paymentData },
+                    setCurrentStep(3);
+                    setStepData(3, {
+                        title: "Verification Complete",
+                        data: { valid: true, method: "beep_api", verifiedAt: new Date().toISOString() },
                         timestamp: Date.now(),
                     });
+                    addDebugLog("success", "✅ Payment verified by Beep");
 
-                    setPaymentResult({
-                        ...paymentData,
-                        txHash,
-                        explorerUrl,
-                    });
-                    setStep("complete");
+                    if (resolvedTxHash) {
+                        void runOnChainVerification(resolvedTxHash, destinationAddress, finalAmount);
+                    } else {
+                        const reason = backendLookup.txHash
+                            ? "Payment gateway did not return a Sui transaction hash. On-chain verification is not available for this checkout session."
+                            : "No on-chain transaction hash is available yet from the payment gateway.";
+                        setOnChainState({ status: "skipped", message: reason });
+                        addDebugLog("warning", reason);
+                    }
+
+                    setTimeout(() => {
+                        setCurrentStep(4);
+                        setStepData(4, {
+                            title: "Payment Complete",
+                                data: { status: "paid", ...paymentData, txHash: safeTxHash },
+                            timestamp: Date.now(),
+                        });
+
+                        setPaymentResult({
+                            ...paymentData,
+                                txHash: safeTxHash,
+                            explorerUrl,
+                        });
+                        setStep("complete");
+                    }, 500);
                 }, 500);
-            }, 500);
+            })();
         }, 500);
-    }, [amount, network, addDebugLog, setReceipt, setCurrentStep, setStepData, runOnChainVerification]);
+    }, [amount, network, addDebugLog, setReceipt, setCurrentStep, setStepData, runOnChainVerification, fetchBackendTxHash, setOnChainState]);
 
     const handlePaymentError = useCallback((err: unknown) => {
         const message = err instanceof Error ? err.message :

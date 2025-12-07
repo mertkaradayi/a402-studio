@@ -38,6 +38,32 @@ function parseAmountToBaseUnits(amount?: string | number | null): bigint | null 
   return BigInt(Math.round(numeric * 10 ** SUI_USDC_DECIMALS));
 }
 
+function extractTxHashFromBeepResponse(payload: any): string | undefined {
+  if (!payload || typeof payload !== "object") return undefined;
+
+  const candidates: Array<unknown> = [
+    payload.txHash,
+    payload.tx_hash,
+    payload.txSignature,
+    payload.tx_signature,
+    payload.transactionHash,
+    payload.transactionDigest,
+    payload.digest,
+    payload.receipt?.txHash,
+    payload.receipt?.tx_hash,
+    payload.details?.txHash,
+    payload.details?.tx_hash,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === "string" && candidate.length > 0) {
+      return candidate;
+    }
+  }
+
+  return undefined;
+}
+
 /**
  * POST /a402/challenge
  * Generate a 402 payment challenge for a protected resource
@@ -234,13 +260,18 @@ a402Router.post("/verify-beep", async (req: Request, res: Response) => {
 
     if (paymentResponse.ok) {
       const paymentData = await paymentResponse.json();
-      console.log("[verify-beep] Payment request success:", paymentData);
+      const txHash = extractTxHashFromBeepResponse(paymentData);
+      console.log("[verify-beep] Payment request success:", {
+        ...paymentData,
+        txHash,
+      });
 
       // If we get a 200 response with receipt/txSignature, payment is confirmed
       if (paymentData.receipt || paymentData.txSignature || paymentData.paid === true) {
         return res.json({
           valid: true,
           method: "beep-payment-request",
+          txHash: txHash ?? undefined,
           details: {
             ...paymentData,
             endpoint: "/v1/payments/request",
@@ -283,13 +314,15 @@ a402Router.post("/verify-beep", async (req: Request, res: Response) => {
 
     if (statusResponse.ok) {
       const statusData = await statusResponse.json();
-      console.log("[verify-beep] Widget payment status:", statusData);
+      const txHash = extractTxHashFromBeepResponse(statusData);
+      console.log("[verify-beep] Widget payment status:", { ...statusData, txHash });
 
       const isPaid = statusData.status === "paid" || statusData.paid === true;
       if (isPaid) {
         return res.json({
           valid: true,
           method: "beep-widget-status",
+          txHash: txHash ?? undefined,
           details: {
             ...statusData,
             endpoint: "/v1/widget/payment-status",
