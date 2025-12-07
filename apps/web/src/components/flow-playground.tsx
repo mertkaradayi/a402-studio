@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
 import { StepIndicator } from "./step-indicator";
+import { SettingsDropdown } from "./settings-dropdown";
 
 export function FlowPlayground() {
   const { resetFlow, receipt, paymentMode, setPaymentMode, currentStep, resetSteps } = useFlowStore();
@@ -77,6 +78,8 @@ export function FlowPlayground() {
             )}>
               {network}
             </div>
+
+            <SettingsDropdown />
 
             <ModeToggle />
 

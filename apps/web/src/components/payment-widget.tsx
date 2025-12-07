@@ -7,6 +7,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { ErrorScenarios, ErrorDisplay, ErrorScenario } from "./error-scenarios";
 
 const BEEP_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY || "";
 
@@ -95,6 +96,7 @@ export function PaymentWidget() {
     const [paymentResult, setPaymentResult] = useState<PaymentResult | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isSimulating, setIsSimulating] = useState(false);
+    const [simulatedError, setSimulatedError] = useState<ErrorScenario | null>(null);
 
     const [amount, setAmount] = useState("0.01");
     const [description, setDescription] = useState("Beep Payment");
@@ -334,13 +336,31 @@ export function PaymentWidget() {
                             />
                         </div>
 
+                        {/* Error Scenarios - Simulation mode only */}
+                        {paymentMode === "simulation" && (
+                            <div className="pt-2 border-t border-border">
+                                <ErrorScenarios
+                                    onSelectScenario={(scenario) => setSimulatedError(scenario)}
+                                />
+                            </div>
+                        )}
+
+                        {/* Show simulated error */}
+                        {simulatedError && (
+                            <ErrorDisplay
+                                error={simulatedError.error}
+                                onDismiss={() => setSimulatedError(null)}
+                            />
+                        )}
+
                         {paymentMode === "simulation" ? (
                             <Button
                                 onClick={runSimulation}
                                 size="lg"
                                 className="w-full font-medium"
+                                disabled={!!simulatedError}
                             >
-                                Run Simulation
+                                {simulatedError ? "Clear Error to Continue" : "Run Simulation"}
                             </Button>
                         ) : (
                             <Button
