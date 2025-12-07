@@ -6,6 +6,8 @@ import { validateChallengeSchema } from "@/lib/validators";
 import { cn } from "@/lib/utils";
 import { SchemaValidationDisplay } from "../shared/schema-validation-display";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3001";
+
 export function TestEndpointMode() {
   const {
     addDebugLog,
@@ -57,7 +59,7 @@ export function TestEndpointMode() {
       addDebugLog("info", "Sending request through backend proxy...");
 
       // Make request through backend proxy to bypass CORS
-      const proxyResponse = await fetch("http://localhost:3001/proxy", {
+      const proxyResponse = await fetch(`${API_URL}/proxy`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -136,7 +138,7 @@ export function TestEndpointMode() {
 
       // Provide more helpful error messages
       if (message.includes("Failed to fetch") || message.includes("NetworkError")) {
-        message = "Cannot connect to API server. Make sure it's running at localhost:3001";
+        message = `Cannot connect to API server at ${API_URL}`;
       }
 
       setError(message);
@@ -245,7 +247,6 @@ export function TestEndpointMode() {
             <p>
               <span className="text-neon-green font-medium">✓ Proxy Active:</span> Requests
               are routed through the backend proxy to bypass CORS restrictions.
-              Ensure the API server is running at <code className="text-neon-cyan">localhost:3001</code>.
             </p>
           </div>
         </div>
