@@ -22,10 +22,16 @@ export function SuiTab() {
   // Real Sui transaction digests are 44 characters in base58 format
   const isMock = receipt
     ? receipt.txHash.includes("MOCK") ||
-      receipt.txHash.includes("DEMO") ||
-      receipt.txHash.includes("SIMULATED") ||
-      receipt.txHash.startsWith("0xDEMO") ||
-      receipt.txHash.startsWith("0xMOCK")
+    receipt.txHash.includes("DEMO") ||
+    receipt.txHash.includes("SIMULATED") ||
+    receipt.txHash.startsWith("0xDEMO") ||
+    receipt.txHash.startsWith("0xMOCK")
+    : false;
+
+  // Detect Beep widget payments (pre-verified but no real on-chain txHash)
+  const isBeepWidget = receipt
+    ? receipt.txHash.startsWith("beep_widget_") ||
+    receipt.txHash.startsWith("beep_verified_")
     : false;
 
   // Fetch transaction details when receipt changes
@@ -37,7 +43,7 @@ export function SuiTab() {
       return;
     }
 
-    if (isMock) {
+    if (isMock || isBeepWidget) {
       setLookupStatus("mock");
       setTxDetails(null);
       setErrorMessage(null);
@@ -107,9 +113,10 @@ export function SuiTab() {
             <div className={cn(
               "w-10 h-10 rounded-full flex items-center justify-center",
               lookupStatus === "loading" ? "bg-blue-500/20" :
-              lookupStatus === "success" ? "bg-neon-green/20" :
-              lookupStatus === "error" ? "bg-red-500/20" :
-              "bg-neon-yellow/20"
+                lookupStatus === "success" ? "bg-neon-green/20" :
+                  lookupStatus === "error" ? "bg-red-500/20" :
+                    isBeepWidget ? "bg-purple-500/20" :
+                      "bg-neon-yellow/20"
             )}>
               {lookupStatus === "loading" ? (
                 <svg className="w-5 h-5 text-blue-400 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -124,6 +131,10 @@ export function SuiTab() {
                 <svg className="w-5 h-5 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                 </svg>
+              ) : isBeepWidget ? (
+                <svg className="w-5 h-5 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+                </svg>
               ) : (
                 <svg className="w-5 h-5 text-neon-yellow" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
@@ -133,9 +144,10 @@ export function SuiTab() {
             <div>
               <div className="text-sm font-medium text-white">
                 {lookupStatus === "loading" ? "Looking up transaction..." :
-                 lookupStatus === "success" ? "Transaction Verified" :
-                 lookupStatus === "error" ? "Lookup Failed" :
-                 "Transaction Settled"}
+                  lookupStatus === "success" ? "Transaction Verified" :
+                    lookupStatus === "error" ? "Lookup Failed" :
+                      isBeepWidget ? "Beep Verified" :
+                        "Transaction Settled"}
               </div>
               <div className="text-xs text-muted-foreground">
                 {txDetails?.timestamp
@@ -151,16 +163,20 @@ export function SuiTab() {
                 ? "bg-neon-green/20 text-neon-green"
                 : "bg-red-500/20 text-red-400"
               : lookupStatus === "error"
-              ? "bg-red-500/20 text-red-400"
-              : "bg-neon-yellow/20 text-neon-yellow"
+                ? "bg-red-500/20 text-red-400"
+                : isBeepWidget
+                  ? "bg-purple-500/20 text-purple-400"
+                  : "bg-neon-yellow/20 text-neon-yellow"
           )}>
             {lookupStatus === "success"
               ? txDetails?.status === "success"
                 ? "Confirmed"
                 : "Failed"
               : lookupStatus === "error"
-              ? "Not Found"
-              : "Simulated"}
+                ? "Not Found"
+                : isBeepWidget
+                  ? "Verified"
+                  : "Simulated"}
           </div>
         </div>
 
@@ -369,36 +385,55 @@ export function SuiTab() {
         </div>
       )}
 
-      {/* Explorer Link */}
-      <div className="flex justify-center">
-        <a
-          href={explorerUrl}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500/10 border border-blue-500/30 rounded-lg text-sm font-medium text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50 transition-all group"
-        >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
-          </svg>
-          View on SuiScan
-          <svg
-            className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
+      {/* Explorer Link - only show for real on-chain transactions */}
+      {!isBeepWidget && (
+        <div className="flex justify-center">
+          <a
+            href={explorerUrl}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 px-6 py-3 bg-blue-500/10 border border-blue-500/30 rounded-lg text-sm font-medium text-blue-400 hover:bg-blue-500/20 hover:border-blue-500/50 transition-all group"
           >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
-            />
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9" />
+            </svg>
+            View on SuiScan
+            <svg
+              className="w-4 h-4 group-hover:translate-x-0.5 transition-transform"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14"
+              />
+            </svg>
+          </a>
+        </div>
+      )}
+
+      {/* Info Note for Beep Widget Payments */}
+      {isBeepWidget && (
+        <div className="bg-purple-500/5 rounded-lg border border-purple-500/20 p-4 flex items-start gap-3">
+          <svg className="w-5 h-5 text-purple-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
           </svg>
-        </a>
-      </div>
+          <div>
+            <p className="text-sm font-medium text-purple-400">Beep Verified Payment</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              This payment was verified by the Beep CheckoutWidget. The widget confirmed payment via
+              Beep&apos;s API (getPaymentStatus returned paid:true). Individual on-chain tx details are
+              handled internally by Beep.
+            </p>
+          </div>
+        </div>
+      )}
 
       {/* Info Note for Mock Transactions */}
-      {isMock && (
+      {isMock && !isBeepWidget && (
         <div className="bg-neon-yellow/5 rounded-lg border border-neon-yellow/20 p-4 flex items-start gap-3">
           <svg className="w-5 h-5 text-neon-yellow flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
