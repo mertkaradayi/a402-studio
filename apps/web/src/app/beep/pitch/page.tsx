@@ -38,6 +38,42 @@ const roadmap = [
   "More MCP helpers plus guided checklists for prod hardening.",
 ];
 
+const useCases = [
+  "Gate premium API/content with replay-safe receipts.",
+  "Run paid streaming sessions with pause/resume you can trust.",
+  "Debug customer 402 issues fast with shareable challenges/receipts.",
+  "Prototype Beep flows before touching prod keys or wallets.",
+];
+
+const proofPoints = [
+  { label: "a402-native", text: "Everything speaks 402: challenges, receipts, retries, and replays." },
+  { label: "Sui-first", text: "Built on Sui with USDC; on-chain when you go live, clean mocks when you don't." },
+  { label: "Dev-first", text: "Typed exports, history, and logs that map to what you see on screen." },
+];
+
+const flowMoments = [
+  "Load preset or your own challenge; get instant schema hints.",
+  "Flip Sandbox → Live without code; same UI, different rails.",
+  "Trigger Beep checkout; capture and view the receipt inline.",
+  "Cross-check receipt vs challenge; export code in cURL/TS/Python.",
+  "Replay from History; share state with teammates for debugging.",
+];
+
+const todayGets = [
+  "Payment playground with sandbox/live toggle and step tracker.",
+  "Inspector that validates and cross-checks challenges/receipts.",
+  "Streaming console to issue/start/pause/stop sessions.",
+  "MCP + backend helpers (proxy, mock generators, verification stubs).",
+  "Code export (cURL/TS/Python) and request history for sharing.",
+];
+
+const teamShare = [
+  "Same proof surface for PM, eng, ops, and risk.",
+  "History links to reproduce bugs without guessing.",
+  "Exported snippets that match what was validated on screen.",
+  "Clear roadmap so stakeholders know what's next.",
+];
+
 export const metadata: Metadata = {
   title: "a402 Studio Pitch | Beep playground & inspector",
   description:
@@ -82,6 +118,15 @@ export default function BeepPitchPage() {
         </section>
 
         <section className="space-y-4 rounded-2xl border border-white/5 bg-[#0e0e10]/70 px-8 py-10">
+          <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">Context</p>
+          <h2 className="text-4xl font-semibold text-white">Why it matters</h2>
+          <p className="text-lg text-muted-foreground">
+            a402 is the Payment Required rail on Sui. Beep turns it into usable payments + receipts.
+            a402 Studio lets you practice both without shipping blind or fighting CORS/keys on day 1.
+          </p>
+        </section>
+
+        <section className="space-y-4 rounded-2xl border border-white/5 bg-[#0e0e10]/70 px-8 py-10">
           <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">Why it exists</p>
           <h2 className="text-4xl font-semibold text-white">Beep + a402 needed a real sandbox</h2>
           <ul className="space-y-3 text-lg text-muted-foreground">
@@ -101,6 +146,19 @@ export default function BeepPitchPage() {
             {solutionPoints.map((item) => (
               <li key={item} className="flex gap-3">
                 <span className="text-neon-yellow">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="space-y-4 rounded-2xl border border-white/5 bg-[#0e0e10]/80 px-8 py-10">
+          <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">Use cases</p>
+          <h2 className="text-4xl font-semibold text-white">Where teams use it today</h2>
+          <ul className="space-y-3 text-lg text-muted-foreground">
+            {useCases.map((item) => (
+              <li key={item} className="flex gap-3">
+                <span className="text-neon-cyan">•</span>
                 <span>{item}</span>
               </li>
             ))}
@@ -129,12 +187,67 @@ export default function BeepPitchPage() {
         </section>
 
         <section className="space-y-4 rounded-2xl border border-white/5 bg-[#0e0e10]/80 px-8 py-10">
+          <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">Moments</p>
+          <h2 className="text-4xl font-semibold text-white">What a run-through looks like</h2>
+          <ul className="space-y-3 text-lg text-muted-foreground">
+            {flowMoments.map((item) => (
+              <li key={item} className="flex gap-3">
+                <span className="text-neon-pink">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="space-y-4 rounded-2xl border border-white/5 bg-[#0e0e10]/80 px-8 py-10">
+          <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">What you get now</p>
+          <h2 className="text-4xl font-semibold text-white">Shipping today</h2>
+          <ul className="space-y-3 text-lg text-muted-foreground">
+            {todayGets.map((item) => (
+              <li key={item} className="flex gap-3">
+                <span className="text-neon-yellow">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="space-y-4 rounded-2xl border border-white/5 bg-[#0e0e10]/80 px-8 py-10">
+          <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">Proof points</p>
+          <h2 className="text-4xl font-semibold text-white">Why it feels different</h2>
+          <div className="grid gap-4 md:grid-cols-3">
+            {proofPoints.map((point) => (
+              <div
+                key={point.label}
+                className="rounded-xl border border-white/10 bg-black/40 p-5 text-white/80"
+              >
+                <p className="text-xs uppercase tracking-[0.25em] text-neon-green">{point.label}</p>
+                <p className="mt-2 text-muted-foreground">{point.text}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="space-y-4 rounded-2xl border border-white/5 bg-[#0e0e10]/80 px-8 py-10">
           <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">Where it goes</p>
           <h2 className="text-4xl font-semibold text-white">Near-term roadmap</h2>
           <ul className="space-y-3 text-lg text-muted-foreground">
             {roadmap.map((item) => (
               <li key={item} className="flex gap-3">
                 <span className="text-neon-green">•</span>
+                <span>{item}</span>
+              </li>
+            ))}
+          </ul>
+        </section>
+
+        <section className="space-y-4 rounded-2xl border border-white/5 bg-[#0e0e10]/80 px-8 py-10">
+          <p className="text-sm uppercase tracking-[0.25em] text-muted-foreground">Teams</p>
+          <h2 className="text-4xl font-semibold text-white">Sharing and collaborating</h2>
+          <ul className="space-y-3 text-lg text-muted-foreground">
+            {teamShare.map((item) => (
+              <li key={item} className="flex gap-3">
+                <span className="text-neon-cyan">•</span>
                 <span>{item}</span>
               </li>
             ))}

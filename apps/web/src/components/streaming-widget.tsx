@@ -458,19 +458,19 @@ export function StreamingWidget() {
   };
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-[#0c0c12]/60 backdrop-blur-sm">
       {/* Header */}
-      <div className="px-6 py-5 border-b border-border/40">
+      <div className="px-6 py-5 border-b border-white/10 bg-white/5 backdrop-blur">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-lg font-semibold tracking-tight">Streaming Payments</h1>
+            <h1 className="text-lg font-semibold tracking-tight text-white">Streaming Payments</h1>
             <p className="text-sm text-muted-foreground mt-0.5">
               {isSimulationMode ? "Simulated usage-based billing" : "Live streaming charges"}
             </p>
           </div>
           <div
             className={cn(
-              "px-2.5 py-1 rounded-lg text-xs font-medium",
+              "px-2.5 py-1 rounded-lg text-xs font-medium border border-white/10",
               isSimulationMode ? "bg-muted text-muted-foreground" : "bg-neon-green/10 text-neon-green"
             )}
           >

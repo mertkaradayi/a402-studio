@@ -95,7 +95,7 @@ export function ErrorScenarios({ onSelectScenario }: ErrorScenariosProps) {
                 {selectedId && (
                     <button
                         onClick={() => setSelectedId(null)}
-                        className="text-[10px] text-muted-foreground hover:text-foreground"
+                        className="text-[10px] text-muted-foreground hover:text-white"
                     >
                         Clear
                     </button>
@@ -107,11 +107,11 @@ export function ErrorScenarios({ onSelectScenario }: ErrorScenariosProps) {
                         key={scenario.id}
                         onClick={() => handleSelect(scenario)}
                         className={cn(
-                            "p-2 rounded-lg border text-left transition-all",
-                            "hover:border-primary/50 hover:bg-muted/30",
+                            "p-2 rounded-lg border text-left transition-all bg-[#0f0f12]/60 backdrop-blur-sm",
+                            "hover:border-neon-pink/50 hover:bg-white/5",
                             selectedId === scenario.id
-                                ? "border-destructive bg-destructive/10"
-                                : "border-border"
+                                ? "border-destructive/60 bg-destructive/10"
+                                : "border-white/12"
                         )}
                     >
                         <div className="flex items-center gap-1.5 mb-0.5">

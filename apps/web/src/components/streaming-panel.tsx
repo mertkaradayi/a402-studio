@@ -84,19 +84,19 @@ export function StreamingPanel() {
   ];
 
   return (
-    <div className="h-full flex flex-col">
+    <div className="h-full flex flex-col bg-[#0c0c12]/60 backdrop-blur-sm">
       {/* Tab Navigation */}
-      <div className="px-4 pt-4 pb-2 border-b border-border">
+      <div className="px-4 pt-4 pb-2 border-b border-white/10 bg-white/5">
         <div className="flex gap-1">
           {tabs.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
               className={cn(
-                "px-3 py-1.5 text-sm font-medium rounded-md transition-colors",
+                "px-3 py-1.5 text-sm font-medium rounded-md transition-all border border-transparent",
                 activeTab === tab.id
-                  ? "bg-primary text-primary-foreground"
-                  : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                  ? "bg-[#0b0b0d] text-white shadow-md shadow-black/30 border border-white/10"
+                  : "text-muted-foreground hover:text-white hover:bg-white/5"
               )}
             >
               {tab.label}
