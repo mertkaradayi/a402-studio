@@ -35,7 +35,7 @@ export default function RootLayout({
 
             <Link
               href="/beep"
-              className="fixed right-4 top-4 z-50 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/70 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-lg shadow-black/40 backdrop-blur-md transition hover:-translate-y-0.5 hover:border-neon-cyan hover:text-neon-cyan"
+              className="fixed bottom-4 right-4 z-50 inline-flex items-center gap-2 rounded-full border border-white/10 bg-black/70 px-3 py-2 text-xs font-semibold uppercase tracking-[0.18em] text-white shadow-lg shadow-black/40 backdrop-blur-md transition hover:-translate-y-0.5 hover:border-neon-cyan hover:text-neon-cyan"
             >
               Beep Story
               <span aria-hidden>↗</span>
