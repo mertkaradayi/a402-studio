@@ -94,8 +94,8 @@ export function WalletButton() {
             {/* Connect Button */}
             <Button
                 onClick={() => setShowModal(true)}
-                variant="neon"
-                className="gap-2 font-bold"
+                variant="outline"
+                className="gap-2 font-semibold dither-surface bg-[#0f1118] text-white border-white/20 hover:border-white/35 hover:bg-[#131726] shadow-[0_12px_38px_-34px_rgba(0,0,0,0.85)]"
             >
                 <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 9V7a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2m2 4h10a2 2 0 002-2v-6a2 2 0 00-2-2H9a2 2 0 00-2 2v6a2 2 0 002 2zm7-5a2 2 0 11-4 0 2 2 0 014 0z" />

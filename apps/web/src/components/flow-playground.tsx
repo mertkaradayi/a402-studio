@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useFlowStore } from "@/stores/flow-store";
 import { useStreamingStore } from "@/stores/streaming-store";
 import { useMCPStore } from "@/stores/mcp-store";
@@ -73,8 +74,8 @@ export function FlowPlayground() {
         <div className="h-16 px-6 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-neon-pink via-neon-yellow to-neon-cyan flex items-center justify-center shadow-lg shadow-neon-pink/20">
-              <svg className="w-5 h-5 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <div className="w-9 h-9 rounded-xl border border-white/12 bg-white/5 shadow-[0_10px_38px_-30px_rgba(0,0,0,0.65)] dither-surface flex items-center justify-center">
+              <svg className="w-5 h-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
             </div>
@@ -143,6 +144,14 @@ export function FlowPlayground() {
 
           {/* Right Actions */}
           <div className="flex items-center gap-3">
+            <Link
+              href="/beep"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/90 transition hover:-translate-y-0.5 hover:border-white/24 hover:text-white dither-surface"
+            >
+              Beep Story
+              <span aria-hidden>↗</span>
+            </Link>
+
             <span className={cn(
               "text-xs px-2.5 py-1 rounded-md font-mono",
               network === 'mainnet'
