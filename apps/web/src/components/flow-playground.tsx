@@ -74,15 +74,24 @@ export function FlowPlayground() {
         <div className="h-16 px-6 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl border border-white/12 bg-white/5 shadow-[0_10px_38px_-30px_rgba(0,0,0,0.65)] dither-surface flex items-center justify-center">
-              <svg className="w-5 h-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
-              </svg>
-            </div>
-            <div className="flex items-baseline gap-2">
-              <span className="font-semibold text-lg tracking-tight">Beep</span>
-              <span className="text-muted-foreground text-sm">Playground</span>
-            </div>
+            <Link href="/" className="group flex items-center gap-3 text-inherit">
+              <div className="w-9 h-9 rounded-xl border border-white/12 bg-white/5 shadow-[0_10px_38px_-30px_rgba(0,0,0,0.65)] dither-surface flex items-center justify-center transition-transform group-hover:-translate-y-0.5">
+                <svg className="w-5 h-5 text-white/90" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                </svg>
+              </div>
+              <div className="flex items-baseline gap-2">
+                <span className="font-semibold text-lg tracking-tight transition-colors group-hover:text-white">Beep</span>
+                <span className="text-muted-foreground text-sm transition-colors group-hover:text-foreground">Playground</span>
+              </div>
+            </Link>
+            <Link
+              href="/beep"
+              className="inline-flex items-center gap-2 rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/90 transition hover:-translate-y-0.5 hover:border-white/24 hover:text-white dither-surface"
+            >
+              Beep Story
+              <span aria-hidden>↗</span>
+            </Link>
           </div>
 
           {/* Center: Mode Toggle */}
@@ -144,14 +153,6 @@ export function FlowPlayground() {
 
           {/* Right Actions */}
           <div className="flex items-center gap-3">
-            <Link
-              href="/beep"
-              className="inline-flex items-center gap-2 rounded-lg border border-white/12 bg-white/5 px-3 py-1.5 text-[11px] font-semibold uppercase tracking-[0.16em] text-white/90 transition hover:-translate-y-0.5 hover:border-white/24 hover:text-white dither-surface"
-            >
-              Beep Story
-              <span aria-hidden>↗</span>
-            </Link>
-
             <span className={cn(
               "text-xs px-2.5 py-1 rounded-md font-mono",
               network === 'mainnet'
