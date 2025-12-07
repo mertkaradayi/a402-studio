@@ -299,9 +299,9 @@ export function PaymentWidget() {
     }
 
     return (
-        <div className="h-full flex flex-col">
+        <div className="h-full flex flex-col bg-[#0c0c12]/60 backdrop-blur-sm">
             {/* Header */}
-            <div className="px-6 py-5 border-b border-border/40">
+            <div className="px-6 py-5 border-b border-white/8 bg-white/5">
                 <div className="flex items-center justify-between">
                     <div>
                         <h1 className="text-lg font-semibold tracking-tight">
@@ -427,7 +427,7 @@ export function PaymentWidget() {
 
                 {step === "paying" && (
                     <div className="max-w-md mx-auto space-y-6">
-                        <Card className="overflow-hidden border-border/60 bg-white">
+                        <Card className="overflow-hidden border-white/15 bg-[#0f0f12]/80">
                             <div className="p-1">
                                 <CheckoutWidget
                                     publishableKey={BEEP_PUBLISHABLE_KEY}

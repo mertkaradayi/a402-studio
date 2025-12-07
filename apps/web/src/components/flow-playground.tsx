@@ -65,13 +65,15 @@ export function FlowPlayground() {
   };
 
   return (
-    <div className="flex flex-col h-screen bg-background text-foreground">
+    <div className="relative flex min-h-screen flex-col overflow-hidden bg-[#0b0b0d] text-foreground">
+      <div className="pointer-events-none absolute inset-0 -z-20 ambient opacity-80" />
+      <div className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(circle_at_18%_18%,rgba(115,255,109,0.08),transparent_24%),radial-gradient(circle_at_82%_10%,rgba(255,0,237,0.12),transparent_28%),radial-gradient(circle_at_50%_82%,rgba(4,217,255,0.08),transparent_24%)]" />
       {/* Header */}
-      <header className="border-b border-border/60 bg-card/50 backdrop-blur-sm sticky top-0 z-50">
+      <header className="sticky top-0 z-50 border-b border-white/10 bg-[#0f0f12]/80 backdrop-blur-lg">
         <div className="h-16 px-6 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-primary flex items-center justify-center">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-neon-pink via-neon-yellow to-neon-cyan flex items-center justify-center shadow-lg shadow-neon-pink/20">
               <svg className="w-5 h-5 text-primary-foreground" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
                 <path strokeLinecap="round" strokeLinejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
               </svg>
@@ -85,7 +87,7 @@ export function FlowPlayground() {
           {/* Center: Mode Toggle */}
           <div className="absolute left-1/2 -translate-x-1/2 flex items-center gap-3">
             {/* Playground Mode Selector */}
-            <div className="flex items-center bg-muted/50 rounded-lg p-1">
+            <div className="flex items-center rounded-lg border border-white/10 bg-white/5 p-1 shadow-[0_10px_40px_-30px_rgba(0,0,0,0.8)] backdrop-blur-sm">
               {(["payment", "streaming", "mcp"] as PlaygroundMode[]).map((mode) => (
                 <button
                   key={mode}
@@ -93,8 +95,8 @@ export function FlowPlayground() {
                   className={cn(
                     "px-4 py-1.5 text-sm font-medium rounded-md transition-all capitalize",
                     playgroundMode === mode
-                      ? "bg-background text-foreground shadow-sm"
-                      : "text-muted-foreground hover:text-foreground"
+                      ? "bg-[#0b0b0d] text-white shadow-md shadow-black/30 border border-white/10"
+                      : "text-muted-foreground hover:text-white"
                   )}
                 >
                   {mode}
@@ -103,7 +105,7 @@ export function FlowPlayground() {
             </div>
 
             {/* Sandbox/Live Toggle */}
-            <div className="flex items-center bg-muted/50 rounded-lg p-1">
+            <div className="flex items-center rounded-lg border border-white/10 bg-white/5 p-1 shadow-[0_10px_40px_-30px_rgba(0,0,0,0.8)] backdrop-blur-sm">
               <button
                 onClick={() => {
                   setSandboxMode();
@@ -111,8 +113,8 @@ export function FlowPlayground() {
                 className={cn(
                   "px-3 py-1.5 text-sm font-medium rounded-md transition-all",
                   (playgroundMode === "payment" ? paymentMode === "simulation" : playgroundMode === "streaming" ? isStreamingSim : isMCPSim)
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-[#0b0b0d] text-white shadow-md shadow-black/30 border border-white/10"
+                    : "text-muted-foreground hover:text-white"
                 )}
               >
                 Sandbox
@@ -124,8 +126,8 @@ export function FlowPlayground() {
                 className={cn(
                   "px-3 py-1.5 text-sm font-medium rounded-md transition-all flex items-center gap-1.5",
                   (playgroundMode === "payment" ? paymentMode === "live" : playgroundMode === "streaming" ? !isStreamingSim : !isMCPSim)
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
+                    ? "bg-[#0b0b0d] text-white shadow-md shadow-black/30 border border-white/10"
+                    : "text-muted-foreground hover:text-white"
                 )}
               >
                 <span className={cn(
@@ -191,14 +193,14 @@ export function FlowPlayground() {
       {/* Main Content */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left: Widget Area */}
-        <div className="w-full md:w-[55%] border-r border-border/40 overflow-hidden">
+        <div className="w-full md:w-[55%] border-r border-white/10 overflow-hidden bg-[#0e0e12]/60 backdrop-blur-sm">
           {playgroundMode === "payment" && <PaymentWidget key={paymentMode} />}
           {playgroundMode === "streaming" && <StreamingWidget />}
           {playgroundMode === "mcp" && <MCPWidget />}
         </div>
 
         {/* Right: Panel Area */}
-        <div className="hidden md:block w-[45%] overflow-hidden bg-muted/5">
+        <div className="hidden md:block w-[45%] overflow-hidden bg-[#0c0c12]/50 border-l border-white/8 backdrop-blur-sm">
           {playgroundMode === "payment" && <ResultsPanel />}
           {playgroundMode === "streaming" && <StreamingPanel />}
           {playgroundMode === "mcp" && <MCPPanel />}
@@ -206,7 +208,7 @@ export function FlowPlayground() {
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-border/40 bg-card/30 px-6 py-3">
+      <footer className="border-t border-white/10 bg-[#0f0f12]/70 px-6 py-3 backdrop-blur-md">
         <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-3">
             <span>Powered by <span className="font-medium text-foreground">Beep</span></span>
