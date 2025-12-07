@@ -8,8 +8,9 @@ import { cn } from "@/lib/utils";
 import { CenterPanel } from "../panels/center-panel";
 import { CodeExportPanel } from "../panels/code-export-panel";
 import { BeepCheckout, useBeepPayment, type BeepPaymentReceipt } from "@/components/beep/beep-checkout";
+import { SdkIntegrationPanel } from "@/components/beep/sdk-integration-panel";
 
-type DemoSubMode = "learning" | "beep";
+type DemoSubMode = "learning" | "beep" | "sdk";
 
 const PRESETS = Object.entries(PRESET_SCENARIOS).filter(([key]) => key !== "custom") as [PresetScenario, typeof PRESET_SCENARIOS[PresetScenario]][];
 
@@ -270,7 +271,9 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
             <p className="text-xs text-muted-foreground mt-1">
               {demoSubMode === "learning"
                 ? "Learn the a402 flow with simulated data"
-                : "Real USDC payments via Beep"}
+                : demoSubMode === "beep"
+                  ? "Real USDC payments via Beep"
+                  : "Production-ready SDK integration"}
             </p>
           </div>
 
@@ -298,6 +301,17 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
             >
               ⚡ Beep Live
             </button>
+            <button
+              onClick={() => setDemoSubMode("sdk")}
+              className={cn(
+                "flex-1 px-3 py-2 text-xs font-medium transition-all",
+                demoSubMode === "sdk"
+                  ? "bg-emerald-500/20 text-emerald-400"
+                  : "bg-card text-muted-foreground hover:bg-muted"
+              )}
+            >
+              🔧 SDK
+            </button>
           </div>
 
           {/* Mode Info Banner */}
@@ -311,13 +325,23 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
                 </div>
               </div>
             </div>
-          ) : (
+          ) : demoSubMode === "beep" ? (
             <div className="p-3 rounded-lg bg-purple-500/5 border border-purple-500/20">
               <div className="flex items-start gap-2">
                 <span className="text-purple-400">⚡</span>
                 <div className="text-xs text-muted-foreground">
                   <p className="font-medium text-purple-400 mb-1">Real Beep Payments</p>
                   <p>Pay real USDC using Beep Checkout Widget. Scan QR with mobile wallet.</p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-3 rounded-lg bg-emerald-500/5 border border-emerald-500/20">
+              <div className="flex items-start gap-2">
+                <span className="text-emerald-400">🔧</span>
+                <div className="text-xs text-muted-foreground">
+                  <p className="font-medium text-emerald-400 mb-1">SDK Integration</p>
+                  <p>Production-ready BeepPublicClient with facilitator-signed receipts.</p>
                 </div>
               </div>
             </div>
@@ -414,7 +438,7 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
                   </>
                 )}
               </>
-            ) : (
+            ) : demoSubMode === "beep" ? (
               <>
                 {/* Beep Live Mode - Streamlined */}
                 <div className="space-y-3">
@@ -452,21 +476,26 @@ ${JSON.stringify(preset.challenge, null, 2)}`;
                   )}
                 </div>
               </>
+            ) : (
+              /* SDK Integration Mode */
+              <SdkIntegrationPanel />
             )}
           </div>
 
           {/* Mode-specific tips */}
-          <div className="text-xs text-muted-foreground bg-card/50 p-3 rounded-lg">
-            {demoSubMode === "learning" ? (
-              <p>
-                <span className="text-neon-yellow font-medium">💡 Tip:</span> Start by loading a preset, then try different payment methods.
-              </p>
-            ) : (
-              <p>
-                <span className="text-purple-400 font-medium">⚠️ Note:</span> Receipts are pre-verified by Beep. Independent verification requires facilitator keys.
-              </p>
-            )}
-          </div>
+          {demoSubMode !== "sdk" && (
+            <div className="text-xs text-muted-foreground bg-card/50 p-3 rounded-lg">
+              {demoSubMode === "learning" ? (
+                <p>
+                  <span className="text-neon-yellow font-medium">💡 Tip:</span> Start by loading a preset, then try different payment methods.
+                </p>
+              ) : (
+                <p>
+                  <span className="text-purple-400 font-medium">⚠️ Note:</span> Receipts are pre-verified by Beep. Independent verification requires facilitator keys.
+                </p>
+              )}
+            </div>
+          )}
         </div>
       </div>
 
