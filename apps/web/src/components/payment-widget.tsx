@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorScenarios, ErrorDisplay, ErrorScenario } from "./error-scenarios";
+import { QuickActions } from "./quick-actions";
 
 const BEEP_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY || "";
 
@@ -90,6 +91,8 @@ export function PaymentWidget() {
         setCurrentStep,
         setStepData,
         resetSteps,
+        addPaymentHistoryEntry,
+        stepData,
     } = useFlowStore();
 
     const [step, setStep] = useState<"config" | "paying" | "simulating" | "complete" | "error">("config");
@@ -151,9 +154,19 @@ export function PaymentWidget() {
             status: "paid",
         });
 
+        // Add to payment history
+        addPaymentHistoryEntry({
+            mode: paymentMode,
+            amount,
+            description,
+            status: "completed",
+            referenceKey: mockData.complete.referenceKey,
+            stepData: { ...stepData },
+        });
+
         setStep("complete");
         setIsSimulating(false);
-    }, [amount, description, network, isSimulating, addDebugLog, resetFlow, resetSteps, setCurrentStep, setStepData, setChallenge, setReceipt]);
+    }, [amount, description, network, isSimulating, addDebugLog, resetFlow, resetSteps, setCurrentStep, setStepData, setChallenge, setReceipt, addPaymentHistoryEntry, paymentMode, stepData]);
 
     // Live payment start
     const handleStartPayment = useCallback(() => {
@@ -309,6 +322,14 @@ export function PaymentWidget() {
             <div className="flex-1 overflow-y-auto p-6">
                 {step === "config" && (
                     <div className="max-w-md mx-auto space-y-6">
+                        {/* Quick Actions */}
+                        <QuickActions
+                            onSelectAmount={(amt, desc) => {
+                                setAmount(amt);
+                                setDescription(desc);
+                            }}
+                        />
+
                         <div className="space-y-2">
                             <label className="text-sm font-medium">Amount (USDC)</label>
                             <div className="relative">

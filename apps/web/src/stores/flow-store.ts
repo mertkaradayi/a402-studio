@@ -106,6 +106,18 @@ export interface StepData {
   timestamp: number;
 }
 
+// Payment history entry for session tracking
+export interface PaymentHistoryEntry {
+  id: string;
+  timestamp: number;
+  mode: PaymentMode;
+  amount: string;
+  description: string;
+  status: "pending" | "completed" | "failed";
+  referenceKey?: string;
+  stepData: Record<number, StepData>;
+}
+
 interface FlowState {
   // App mode
   currentMode: AppMode;
@@ -149,6 +161,9 @@ interface FlowState {
   currentStep: number; // 0-4
   stepData: Record<number, StepData>;
 
+  // Payment history for session
+  paymentHistory: PaymentHistoryEntry[];
+
   // Actions - Mode
   setCurrentMode: (mode: AppMode) => void;
   setSelectedPreset: (preset: PresetScenario) => void;
@@ -188,6 +203,10 @@ interface FlowState {
   setStepData: (step: number, data: StepData) => void;
   resetSteps: () => void;
 
+  // Actions - Payment History
+  addPaymentHistoryEntry: (entry: Omit<PaymentHistoryEntry, "id" | "timestamp">) => void;
+  clearPaymentHistory: () => void;
+
   // Actions - Reset
   resetFlow: () => void;
 }
@@ -218,6 +237,7 @@ export const useFlowStore = create<FlowState>((set) => ({
   paymentMode: "simulation",
   currentStep: -1,
   stepData: {},
+  paymentHistory: [],
 
   setCurrentMode: (mode) => set({ currentMode: mode }),
 
@@ -306,6 +326,20 @@ export const useFlowStore = create<FlowState>((set) => ({
     })),
 
   resetSteps: () => set({ currentStep: -1, stepData: {} }),
+
+  addPaymentHistoryEntry: (entry) =>
+    set((state) => ({
+      paymentHistory: [
+        {
+          ...entry,
+          id: `pay_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+          timestamp: Date.now(),
+        },
+        ...state.paymentHistory,
+      ].slice(0, 20), // Keep last 20 payments
+    })),
+
+  clearPaymentHistory: () => set({ paymentHistory: [] }),
 
   resetFlow: () =>
     set({

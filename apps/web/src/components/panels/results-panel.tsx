@@ -7,6 +7,9 @@ import { CodeSnippets } from "../code-snippets";
 import { APIInspector } from "../api-inspector";
 import { ReferenceKeyLookup } from "../reference-key-lookup";
 import { StepDetail } from "../step-detail";
+import { HistoryPanel } from "../history-panel";
+import { CodeExport } from "../code-export";
+import { WebhookPreview } from "../webhook-preview";
 import { Card, CardContent } from "@/components/ui/card";
 
 // Helper component for copiable values
@@ -43,7 +46,8 @@ function CopyableValue({ value, displayValue, className }: { value: string; disp
 }
 
 export function ResultsPanel() {
-    const { receipt, challenge, debugLogs, apiCalls, currentStep } = useFlowStore();
+    const { receipt, challenge, debugLogs, apiCalls, currentStep, paymentHistory } = useFlowStore();
+    const [activeTab, setActiveTab] = useState<"status" | "history">("status");
 
     // Get recent logs (last 10)
     const recentLogs = debugLogs.slice(-10).reverse();
@@ -150,101 +154,108 @@ export function ResultsPanel() {
                     </Card>
                 )}
 
-                {/* Step-by-Step Data - Show during simulation or live payment */}
-                {currentStep >= 0 && (
-                    <div className="mt-6">
-                        <h3 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2 px-1">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                            </svg>
-                            Step Data
-                        </h3>
-                        <StepDetail />
-                    </div>
-                )}
-
-                {/* Code Snippets - Show after payment */}
-                {receipt && (
-                    <div className="mt-6">
-                        <h3 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2 px-1">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
-                            </svg>
-                            Integration Code
-                        </h3>
-                        <CodeSnippets
-                            amount={receipt.amount}
-                            description="Your Product"
-                            referenceKey={receipt.requestNonce}
-                        />
-                    </div>
-                )}
-
-                {/* API Inspector - Show when there are API calls */}
-                {apiCalls.length > 0 && (
-                    <div className="mt-6">
-                        <h3 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2 px-1">
-                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                            </svg>
-                            API Responses
-                        </h3>
-                        <APIInspector calls={apiCalls} />
-                    </div>
-                )}
-
-                {/* Debug Logs */}
-                <div className="mt-6">
-                    <h3 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2 px-1">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Activity Log
-                    </h3>
-                    <div className="bg-card rounded-lg border border-border p-3 max-h-48 overflow-y-auto font-mono text-xs shadow-inner bg-muted/20">
-                        {recentLogs.length > 0 ? (
-                            <div className="space-y-2">
-                                {recentLogs.map((log, i) => (
-                                    <div key={i} className="flex items-start gap-2.5">
-                                        <span className={cn(
-                                            "flex-shrink-0 mt-0.5",
-                                            log.type === "success" && "text-neon-green",
-                                            log.type === "error" && "text-destructive",
-                                            log.type === "warning" && "text-neon-yellow",
-                                            log.type === "info" && "text-accent"
-                                        )}>
-                                            {log.type === "success" && "✓"}
-                                            {log.type === "error" && "✗"}
-                                            {log.type === "warning" && "!"}
-                                            {log.type === "info" && "ℹ"}
-                                        </span>
-                                        <span className={cn(
-                                            "leading-relaxed break-all",
-                                            log.type === "error" ? "text-destructive" : "text-muted-foreground"
-                                        )}>
-                                            {log.message}
-                                        </span>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : (
-                            <p className="text-xs text-muted-foreground/50 text-center py-4 italic">
-                                No activity yet
-                            </p>
+                {/* Tabs for different views */}
+                <div className="mb-6 flex space-x-1 border-b border-border">
+                    <button
+                        onClick={() => setActiveTab("status")}
+                        className={cn(
+                            "px-4 py-2 text-xs font-medium border-b-2 transition-colors",
+                            activeTab === "status"
+                                ? "border-primary text-primary"
+                                : "border-transparent text-muted-foreground hover:text-foreground"
                         )}
-                    </div>
+                    >
+                        Status
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("history")}
+                        className={cn(
+                            "px-4 py-2 text-xs font-medium border-b-2 transition-colors",
+                            activeTab === "history"
+                                ? "border-primary text-primary"
+                                : "border-transparent text-muted-foreground hover:text-foreground"
+                        )}
+                    >
+                        History
+                        {paymentHistory.length > 0 && (
+                            <span className="ml-1.5 px-1.5 py-0.5 rounded-full bg-muted text-[10px]">
+                                {paymentHistory.length}
+                            </span>
+                        )}
+                    </button>
                 </div>
 
-                {/* Reference Key Lookup - Developer Tool */}
-                <div className="mt-6">
-                    <h3 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2 px-1">
-                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                        </svg>
-                        Developer Tools
-                    </h3>
-                    <ReferenceKeyLookup />
-                </div>
+                {activeTab === "history" ? (
+                    <HistoryPanel />
+                ) : (
+                    <div className="space-y-6">
+                        {/* Step-by-Step Data */}
+                        {currentStep >= 0 && (
+                            <div>
+                                <h3 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2 px-1">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+                                    </svg>
+                                    Step Data
+                                </h3>
+                                <div className="space-y-3">
+                                    <StepDetail />
+                                    {/* Webhook Preview in Step Data */}
+                                    {receipt && (
+                                        <WebhookPreview
+                                            referenceKey={receipt.requestNonce}
+                                            amount={receipt.amount}
+                                            status="completed"
+                                        />
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Code Export & Snippets */}
+                        {receipt && (
+                            <div>
+                                <h3 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2 px-1">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
+                                    </svg>
+                                    Integration Code
+                                </h3>
+                                <div className="space-y-4">
+                                    <CodeExport
+                                        amount={receipt.amount}
+                                        description="Your Product"
+                                        referenceKey={receipt.requestNonce}
+                                    />
+                                </div>
+                            </div>
+                        )}
+
+                        {/* API Inspector */}
+                        {apiCalls.length > 0 && (
+                            <div>
+                                <h3 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2 px-1">
+                                    <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    API Responses
+                                </h3>
+                                <APIInspector calls={apiCalls} />
+                            </div>
+                        )}
+
+                        {/* Developer Tools */}
+                        <div>
+                            <h3 className="text-xs font-medium text-muted-foreground mb-3 flex items-center gap-2 px-1">
+                                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                                </svg>
+                                Developer Tools
+                            </h3>
+                            <ReferenceKeyLookup />
+                        </div>
+                    </div>
+                )}
             </div>
 
             {/* Footer */}
