@@ -102,6 +102,7 @@ export type PaymentMode = "simulation" | "live";
 // Step data for visualization
 export interface StepData {
   title: string;
+  type?: string;
   data: Record<string, unknown>;
   timestamp: number;
 }
