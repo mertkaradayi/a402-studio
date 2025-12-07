@@ -1,11 +1,45 @@
 "use client";
 
+import { useState } from "react";
 import { useFlowStore } from "@/stores/flow-store";
 import { cn } from "@/lib/utils";
 import { CodeSnippets } from "../code-snippets";
 import { APIInspector } from "../api-inspector";
 import { ReferenceKeyLookup } from "../reference-key-lookup";
 import { Card, CardContent } from "@/components/ui/card";
+
+// Helper component for copiable values
+function CopyableValue({ value, displayValue, className }: { value: string; displayValue?: string; className?: string }) {
+    const [copied, setCopied] = useState(false);
+
+    const handleCopy = async () => {
+        await navigator.clipboard.writeText(value);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 1500);
+    };
+
+    return (
+        <button
+            onClick={handleCopy}
+            className={cn(
+                "group flex items-center gap-1.5 font-mono transition-colors hover:text-primary cursor-pointer",
+                className
+            )}
+            title={`Click to copy: ${value}`}
+        >
+            <span className="truncate max-w-[120px]">{displayValue || value}</span>
+            {copied ? (
+                <svg className="w-3 h-3 text-neon-green flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                </svg>
+            ) : (
+                <svg className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
+                </svg>
+            )}
+        </button>
+    );
+}
 
 export function ResultsPanel() {
     const { receipt, challenge, debugLogs, apiCalls } = useFlowStore();
@@ -49,17 +83,20 @@ export function ResultsPanel() {
                                     <span className="text-muted-foreground">Amount</span>
                                     <span className="font-mono text-neon-green">{receipt.amount} {receipt.asset}</span>
                                 </div>
-                                <div className="flex justify-between py-1.5 border-b border-primary/10">
+                                <div className="flex justify-between items-center py-1.5 border-b border-primary/10">
                                     <span className="text-muted-foreground">Reference</span>
-                                    <span className="font-mono text-primary truncate max-w-[140px]" title={receipt.requestNonce}>
-                                        {receipt.requestNonce?.slice(0, 12)}...
-                                    </span>
+                                    <CopyableValue
+                                        value={receipt.requestNonce || ""}
+                                        displayValue={`${receipt.requestNonce?.slice(0, 12)}...`}
+                                        className="text-primary"
+                                    />
                                 </div>
-                                <div className="flex justify-between py-1.5 border-b border-primary/10">
+                                <div className="flex justify-between items-center py-1.5 border-b border-primary/10">
                                     <span className="text-muted-foreground">Recipient</span>
-                                    <span className="font-mono truncate max-w-[140px]" title={receipt.merchant}>
-                                        {receipt.merchant?.slice(0, 8)}...{receipt.merchant?.slice(-6)}
-                                    </span>
+                                    <CopyableValue
+                                        value={receipt.merchant || ""}
+                                        displayValue={`${receipt.merchant?.slice(0, 8)}...${receipt.merchant?.slice(-6)}`}
+                                    />
                                 </div>
                                 <div className="flex justify-between py-1.5">
                                     <span className="text-muted-foreground">Network</span>
