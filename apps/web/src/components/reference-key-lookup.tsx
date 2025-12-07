@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
 const BEEP_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY || "";
+const BEEP_SERVER_URL = process.env.NEXT_PUBLIC_BEEP_SERVER_URL || "https://api.justbeep.it";
 
 interface LookupResult {
     paid: boolean;
@@ -33,14 +34,21 @@ export function ReferenceKeyLookup() {
         try {
             const beepClient = new BeepPublicClient({
                 publishableKey: BEEP_PUBLISHABLE_KEY,
+                serverUrl: BEEP_SERVER_URL,
             });
 
+            console.log("[ReferenceKeyLookup] Checking status for:", referenceKey.trim());
+            console.log("[ReferenceKeyLookup] Using server:", BEEP_SERVER_URL);
+
             const status = await beepClient.widget.getPaymentStatus(referenceKey.trim());
+            console.log("[ReferenceKeyLookup] API Response:", status);
+
             setResult({
-                paid: (status as { paid?: boolean })?.paid === true,
-                status: (status as { status?: string })?.status,
+                paid: status.paid === true,
+                status: status.status,
             });
         } catch (error) {
+            console.error("[ReferenceKeyLookup] Error:", error);
             setResult({
                 paid: false,
                 error: error instanceof Error ? error.message : "Lookup failed",
