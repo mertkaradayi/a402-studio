@@ -69,41 +69,47 @@ export function StreamingWidget() {
     };
   }, []);
 
+  // Track accumulated total in a ref to avoid stale closures
+  const accumulatedRef = useRef(0);
+
+  // Reset accumulated ref when session changes
+  useEffect(() => {
+    accumulatedRef.current = parseFloat(currentSession?.totalAccumulated || "0");
+  }, [currentSession?.id]);
+
   // Run simulation charges when active - FAST ticking for demo feel
   useEffect(() => {
     if (!currentSession || !isSimulationMode) return;
 
     if (currentSession.state === "active") {
+      // Calculate charge per tick based on assets (captured once)
+      const chargePerTick = currentSession.assets.reduce((sum, asset) => {
+        return sum + parseFloat(asset.unitPrice) * asset.quantity;
+      }, 0);
+
       // Fast tick every 100ms for smooth demo experience
       simulationRef.current = setInterval(() => {
         chargeCountRef.current += 1;
         const chargeNum = chargeCountRef.current;
 
-        // Calculate charge based on assets
-        const totalCharge = currentSession.assets.reduce((sum, asset) => {
-          return sum + parseFloat(asset.unitPrice) * asset.quantity;
-        }, 0);
-
         const referenceKey = `ref_${Date.now().toString(36)}_${chargeNum}`;
 
         addCharge({
           referenceKey,
-          amount: totalCharge.toFixed(6),
+          amount: chargePerTick.toFixed(6),
           asset: "USDC",
           status: "confirmed",
         });
 
         addReferenceKey(referenceKey);
 
-        // Update total
-        const newTotal = (
-          parseFloat(currentSession.totalAccumulated) + totalCharge
-        ).toFixed(6);
-        updateTotalAccumulated(newTotal);
+        // Update total using ref to avoid stale closure
+        accumulatedRef.current += chargePerTick;
+        updateTotalAccumulated(accumulatedRef.current.toFixed(6));
 
         // Only log every 10th charge to avoid spam
         if (chargeNum % 10 === 0) {
-          addLog("charge", `Tick #${chargeNum}: +${(totalCharge * 10).toFixed(6)} USDC`, {
+          addLog("charge", `Tick #${chargeNum}: +${(chargePerTick * 10).toFixed(6)} USDC`, {
             referenceKey,
             tickCount: chargeNum,
           });
@@ -122,7 +128,7 @@ export function StreamingWidget() {
         simulationRef.current = null;
       }
     }
-  }, [currentSession?.state, currentSession?.assets, isSimulationMode, addCharge, addReferenceKey, updateTotalAccumulated, addLog, currentSession?.totalAccumulated]);
+  }, [currentSession?.state, currentSession?.assets, currentSession?.id, isSimulationMode, addCharge, addReferenceKey, updateTotalAccumulated, addLog]);
 
   // Handle creating a new streaming session
   const handleCreateSession = useCallback(() => {
@@ -250,10 +256,11 @@ export function StreamingWidget() {
 
     if (isSimulationMode) {
       await new Promise((r) => setTimeout(r, 800));
-      stopStreaming(currentSession.referenceKeys);
-      addLog("success", `Stream stopped. Total: ${currentSession.totalAccumulated} USDC`, {
-        referenceKeys: currentSession.referenceKeys,
-        totalCharges: currentSession.charges.length,
+      // Use the ref for accurate total, and get latest state from store
+      const finalTotal = accumulatedRef.current.toFixed(6);
+      stopStreaming(); // Will use current referenceKeys from store
+      addLog("success", `Stream stopped. Total: ${finalTotal} USDC`, {
+        totalCharges: chargeCountRef.current,
       });
       saveToHistory();
     } else {
@@ -276,7 +283,7 @@ export function StreamingWidget() {
         addLog("error", `Failed to stop: ${message}`);
       }
     }
-  }, [currentSession, isSimulationMode, setSessionState, stopStreaming, addLog, saveToHistory, setError]);
+  }, [currentSession?.invoiceId, isSimulationMode, setSessionState, stopStreaming, addLog, saveToHistory, setError]);
 
   // Render based on session state
   const renderContent = () => {

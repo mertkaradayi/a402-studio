@@ -2,11 +2,14 @@
 
 import { useFlowStore } from "@/stores/flow-store";
 import { useStreamingStore } from "@/stores/streaming-store";
+import { useMCPStore } from "@/stores/mcp-store";
 import { WalletButton } from "./wallet-button";
 import { PaymentWidget } from "./payment-widget";
 import { StreamingWidget } from "./streaming-widget";
+import { MCPWidget } from "./mcp-widget";
 import { ResultsPanel } from "./panels/results-panel";
 import { StreamingPanel } from "./streaming-panel";
+import { MCPPanel } from "./mcp-panel";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { ModeToggle } from "@/components/mode-toggle";
@@ -15,11 +18,12 @@ import { SettingsDropdown } from "./settings-dropdown";
 import { useState } from "react";
 
 // Main playground mode
-type PlaygroundMode = "payment" | "streaming";
+type PlaygroundMode = "payment" | "streaming" | "mcp";
 
 export function FlowPlayground() {
   const { resetFlow, receipt, paymentMode, setPaymentMode, currentStep, resetSteps } = useFlowStore();
   const { currentSession, isSimulationMode, setSimulationMode, resetSession } = useStreamingStore();
+  const { currentInvocation, resetMCP } = useMCPStore();
   const [playgroundMode, setPlaygroundMode] = useState<PlaygroundMode>("payment");
 
   const network = process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "mainnet" : "testnet";
@@ -75,52 +79,69 @@ export function FlowPlayground() {
                   <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-purple-500 rounded-full" />
                 )}
               </button>
-            </div>
-
-            {/* Sandbox/Live Toggle */}
-            <div className="flex items-center border border-border rounded-lg overflow-hidden bg-muted/50">
-              <button
-                onClick={() => {
-                  if (playgroundMode === "payment") {
-                    setPaymentMode("simulation");
-                  } else {
-                    setSimulationMode(true);
-                  }
-                }}
-                className={cn(
-                  "px-3 py-1.5 text-sm font-medium transition-all relative",
-                  (playgroundMode === "payment" ? paymentMode === "simulation" : isSimulationMode)
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground"
-                )}
-              >
-                Sandbox
-                {(playgroundMode === "payment" ? paymentMode === "simulation" : isSimulationMode) && (
-                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-primary rounded-full" />
-                )}
-              </button>
               <div className="w-px h-5 bg-border" />
               <button
-                onClick={() => {
-                  if (playgroundMode === "payment") {
-                    setPaymentMode("live");
-                  } else {
-                    setSimulationMode(false);
-                  }
-                }}
+                onClick={() => setPlaygroundMode("mcp")}
                 className={cn(
                   "px-3 py-1.5 text-sm font-medium transition-all relative",
-                  (playgroundMode === "payment" ? paymentMode === "live" : !isSimulationMode)
+                  playgroundMode === "mcp"
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                Live
-                {(playgroundMode === "payment" ? paymentMode === "live" : !isSimulationMode) && (
-                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-neon-green rounded-full" />
+                MCP
+                {playgroundMode === "mcp" && (
+                  <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-amber-500 rounded-full" />
                 )}
               </button>
             </div>
+
+            {/* Sandbox/Live Toggle - Hidden for MCP mode (always simulation) */}
+            {playgroundMode !== "mcp" && (
+              <div className="flex items-center border border-border rounded-lg overflow-hidden bg-muted/50">
+                <button
+                  onClick={() => {
+                    if (playgroundMode === "payment") {
+                      setPaymentMode("simulation");
+                    } else {
+                      setSimulationMode(true);
+                    }
+                  }}
+                  className={cn(
+                    "px-3 py-1.5 text-sm font-medium transition-all relative",
+                    (playgroundMode === "payment" ? paymentMode === "simulation" : isSimulationMode)
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Sandbox
+                  {(playgroundMode === "payment" ? paymentMode === "simulation" : isSimulationMode) && (
+                    <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-primary rounded-full" />
+                  )}
+                </button>
+                <div className="w-px h-5 bg-border" />
+                <button
+                  onClick={() => {
+                    if (playgroundMode === "payment") {
+                      setPaymentMode("live");
+                    } else {
+                      setSimulationMode(false);
+                    }
+                  }}
+                  className={cn(
+                    "px-3 py-1.5 text-sm font-medium transition-all relative",
+                    (playgroundMode === "payment" ? paymentMode === "live" : !isSimulationMode)
+                      ? "bg-background text-foreground shadow-sm"
+                      : "text-muted-foreground hover:text-foreground"
+                  )}
+                >
+                  Live
+                  {(playgroundMode === "payment" ? paymentMode === "live" : !isSimulationMode) && (
+                    <span className="absolute -top-px left-1/2 -translate-x-1/2 w-6 h-0.5 bg-neon-green rounded-full" />
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           {/* Right Actions */}
@@ -141,7 +162,8 @@ export function FlowPlayground() {
             <WalletButton />
 
             {((playgroundMode === "payment" && (receipt || currentStep >= 0)) ||
-              (playgroundMode === "streaming" && currentSession)) && (
+              (playgroundMode === "streaming" && currentSession) ||
+              (playgroundMode === "mcp" && currentInvocation)) && (
               <Button
                 variant="ghost"
                 size="sm"
@@ -149,8 +171,10 @@ export function FlowPlayground() {
                   if (playgroundMode === "payment") {
                     resetFlow();
                     resetSteps();
-                  } else {
+                  } else if (playgroundMode === "streaming") {
                     resetSession();
+                  } else {
+                    resetMCP();
                   }
                 }}
                 className="text-muted-foreground hover:text-foreground"
@@ -174,12 +198,16 @@ export function FlowPlayground() {
         {/* Left: Widget Area */}
         <div className="w-full md:w-[55%] border-r border-border overflow-hidden relative">
           <div className="absolute inset-0 bg-[radial-gradient(#36363B_1px,transparent_1px)] [background-size:20px_20px] opacity-[0.02] dark:opacity-[0.08] pointer-events-none" />
-          {playgroundMode === "payment" ? <PaymentWidget /> : <StreamingWidget />}
+          {playgroundMode === "payment" && <PaymentWidget />}
+          {playgroundMode === "streaming" && <StreamingWidget />}
+          {playgroundMode === "mcp" && <MCPWidget />}
         </div>
 
         {/* Right: Panel Area */}
         <div className="hidden md:block w-[45%] overflow-hidden bg-muted/5">
-          {playgroundMode === "payment" ? <ResultsPanel /> : <StreamingPanel />}
+          {playgroundMode === "payment" && <ResultsPanel />}
+          {playgroundMode === "streaming" && <StreamingPanel />}
+          {playgroundMode === "mcp" && <MCPPanel />}
         </div>
       </div>
 

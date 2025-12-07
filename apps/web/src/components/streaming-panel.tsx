@@ -208,6 +208,36 @@ export function StreamingPanel() {
               </div>
             )}
 
+            {/* Stopped Summary */}
+            {currentSession?.state === "stopped" && (
+              <div className="space-y-3">
+                <div className="flex items-center justify-center gap-2 py-2 bg-muted/50 rounded-lg border border-border">
+                  <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                  </svg>
+                  <span className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Session Complete</span>
+                </div>
+                <div className="bg-muted/30 rounded-lg p-3 space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Final Amount</span>
+                    <span className="font-mono font-semibold text-neon-green">{currentSession.totalAccumulated} USDC</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Duration</span>
+                    <span className="font-mono">{formatTime(currentSession.totalDuration)}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Total Ticks</span>
+                    <span className="font-mono">{currentSession.charges.length}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Reference Keys</span>
+                    <span className="font-mono">{currentSession.referenceKeys.length}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {/* No Session */}
             {!currentSession && (
               <div className="text-center py-8 text-muted-foreground">

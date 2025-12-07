@@ -4,6 +4,7 @@ import cors from "cors";
 import { a402Router } from "./routes/a402.js";
 import { proxyRouter } from "./routes/proxy.js";
 import { streamingRouter } from "./routes/streaming.js";
+import { mcpRouter } from "./routes/mcp.js";
 
 const app = express();
 const PORT = process.env.PORT || 3001;
@@ -56,6 +57,9 @@ app.use("/streaming", streamingRouter);
 
 // Proxy route for CORS bypass
 app.use("/proxy", proxyRouter);
+
+// MCP simulation routes
+app.use("/mcp", mcpRouter);
 
 // Start server
 app.listen(PORT, () => {

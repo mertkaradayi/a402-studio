@@ -1,265 +1,192 @@
 import { Router, Request, Response } from "express";
+import { BeepClient } from "@beep-it/sdk-core";
 
 export const streamingRouter = Router();
 
-// In-memory store for streaming sessions (demo purposes)
-interface StreamingSession {
-  invoiceId: string;
-  merchantId: string;
-  assets: Array<{ assetId: string; quantity: number; name?: string }>;
-  state: "issued" | "active" | "paused" | "stopped";
-  referenceKeys: string[];
-  charges: Array<{
-    referenceKey: string;
-    amount: string;
-    timestamp: number;
-  }>;
-  createdAt: number;
-  startedAt: number | null;
-  pausedAt: number | null;
-  stoppedAt: number | null;
-}
+// Initialize Beep Client
+const beepClient = new BeepClient({
+  apiKey: process.env.BEEP_API_KEY || "",
+});
 
-const sessions = new Map<string, StreamingSession>();
+// Simple in-memory cache for status checks (optional, but good for UI responsiveness)
+// In production, you might want to rely on webhooks or database
+interface LocalSessionState {
+  invoiceId: string;
+  state: "issued" | "active" | "paused" | "stopped";
+  merchantId: string;
+  assets: any[];
+}
+const sessionCache = new Map<string, LocalSessionState>();
 
 /**
  * POST /streaming/issue
  * Issue a new streaming payment request (creates invoice)
- *
- * Maps to Beep SDK: payments.issuePayment()
  */
-streamingRouter.post("/issue", (req: Request, res: Response) => {
-  const { assetChunks, payingMerchantId, invoiceId: existingInvoiceId } = req.body;
+streamingRouter.post("/issue", async (req: Request, res: Response) => {
+  try {
+    const { assetChunks, payingMerchantId, invoiceId: existingInvoiceId } = req.body;
 
-  if (!assetChunks || !Array.isArray(assetChunks) || assetChunks.length === 0) {
-    return res.status(400).json({ error: "assetChunks array required" });
+    if (!assetChunks || !Array.isArray(assetChunks) || assetChunks.length === 0) {
+      return res.status(400).json({ error: "assetChunks array required" });
+    }
+
+    if (!payingMerchantId) {
+      return res.status(400).json({ error: "payingMerchantId required" });
+    }
+
+    // Call Beep SDK to issue payment
+    const result = await beepClient.payments.issuePayment({
+      assetChunks,
+      payingMerchantId,
+      invoiceId: existingInvoiceId,
+    });
+
+    console.log(`[streaming/issue] Created session ${result.invoiceId} for merchant ${payingMerchantId}`);
+
+    // Update local cache
+    sessionCache.set(result.invoiceId, {
+      invoiceId: result.invoiceId,
+      state: "issued",
+      merchantId: payingMerchantId,
+      assets: assetChunks,
+    });
+
+    res.json({
+      invoiceId: result.invoiceId,
+      referenceKey: result.referenceKey,
+    });
+  } catch (error: any) {
+    console.error("Failed to issue payment:", error);
+    res.status(500).json({ error: error.message || "Failed to issue payment" });
   }
-
-  if (!payingMerchantId) {
-    return res.status(400).json({ error: "payingMerchantId required" });
-  }
-
-  // Use existing invoice or create new one
-  const invoiceId = existingInvoiceId || `inv_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-  const referenceKey = `ref_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
-
-  const session: StreamingSession = {
-    invoiceId,
-    merchantId: payingMerchantId,
-    assets: assetChunks,
-    state: "issued",
-    referenceKeys: [referenceKey],
-    charges: [],
-    createdAt: Date.now(),
-    startedAt: null,
-    pausedAt: null,
-    stoppedAt: null,
-  };
-
-  sessions.set(invoiceId, session);
-
-  console.log(`[streaming/issue] Created session ${invoiceId} for merchant ${payingMerchantId}`);
-
-  res.json({
-    invoiceId,
-    referenceKey,
-  });
 });
 
 /**
  * POST /streaming/start
  * Start a streaming session (begin charging)
- *
- * Maps to Beep SDK: payments.startStreaming()
  */
-streamingRouter.post("/start", (req: Request, res: Response) => {
-  const { invoiceId } = req.body;
+streamingRouter.post("/start", async (req: Request, res: Response) => {
+  try {
+    const { invoiceId } = req.body;
 
-  if (!invoiceId) {
-    return res.status(400).json({ error: "invoiceId required" });
+    if (!invoiceId) {
+      return res.status(400).json({ error: "invoiceId required" });
+    }
+
+    // Call Beep SDK to start streaming
+    const result = await beepClient.payments.startStreaming({
+      invoiceId,
+    });
+
+    console.log(`[streaming/start] Started session ${invoiceId}`);
+
+    // Update local cache
+    const session = sessionCache.get(invoiceId);
+    if (session) {
+      session.state = "active";
+    }
+
+    res.json({
+      invoiceId: result.invoiceId,
+    });
+  } catch (error: any) {
+    console.error("Failed to start stream:", error);
+    res.status(500).json({ error: error.message || "Failed to start stream" });
   }
-
-  const session = sessions.get(invoiceId);
-  if (!session) {
-    return res.status(404).json({ error: "Session not found" });
-  }
-
-  if (session.state === "stopped") {
-    return res.status(400).json({ error: "Cannot start a stopped session" });
-  }
-
-  if (session.state === "active") {
-    return res.status(400).json({ error: "Session already active" });
-  }
-
-  session.state = "active";
-  session.startedAt = session.startedAt || Date.now();
-  session.pausedAt = null;
-
-  console.log(`[streaming/start] Started session ${invoiceId}`);
-
-  res.json({
-    invoiceId: session.invoiceId,
-  });
 });
 
 /**
  * POST /streaming/pause
- * Pause a streaming session (stop charging temporarily)
- *
- * Maps to Beep SDK: payments.pauseStreaming()
+ * Pause a streaming session
  */
-streamingRouter.post("/pause", (req: Request, res: Response) => {
-  const { invoiceId } = req.body;
+streamingRouter.post("/pause", async (req: Request, res: Response) => {
+  try {
+    const { invoiceId } = req.body;
 
-  if (!invoiceId) {
-    return res.status(400).json({ error: "invoiceId required" });
+    if (!invoiceId) {
+      return res.status(400).json({ error: "invoiceId required" });
+    }
+
+    // Call Beep SDK to pause streaming
+    const result = await beepClient.payments.pauseStreaming({
+      invoiceId,
+    });
+
+    console.log(`[streaming/pause] Paused session ${invoiceId}`);
+
+    // Update local cache
+    const session = sessionCache.get(invoiceId);
+    if (session) {
+      session.state = "paused";
+    }
+
+    res.json({
+      success: result.success,
+    });
+  } catch (error: any) {
+    console.error("Failed to pause stream:", error);
+    res.status(500).json({ error: error.message || "Failed to pause stream" });
   }
-
-  const session = sessions.get(invoiceId);
-  if (!session) {
-    return res.status(404).json({ error: "Session not found" });
-  }
-
-  if (session.state !== "active") {
-    return res.status(400).json({ error: "Can only pause active sessions" });
-  }
-
-  session.state = "paused";
-  session.pausedAt = Date.now();
-
-  console.log(`[streaming/pause] Paused session ${invoiceId}`);
-
-  res.json({
-    success: true,
-  });
 });
 
 /**
  * POST /streaming/stop
- * Stop a streaming session permanently and finalize charges
- *
- * Maps to Beep SDK: payments.stopStreaming()
+ * Stop a streaming session permanently
  */
-streamingRouter.post("/stop", (req: Request, res: Response) => {
-  const { invoiceId } = req.body;
+streamingRouter.post("/stop", async (req: Request, res: Response) => {
+  try {
+    const { invoiceId } = req.body;
 
-  if (!invoiceId) {
-    return res.status(400).json({ error: "invoiceId required" });
+    if (!invoiceId) {
+      return res.status(400).json({ error: "invoiceId required" });
+    }
+
+    // Call Beep SDK to stop streaming
+    const result = await beepClient.payments.stopStreaming({
+      invoiceId,
+    });
+
+    console.log(`[streaming/stop] Stopped session ${invoiceId}, total refs: ${result.referenceKeys.length}`);
+
+    // Update local cache
+    const session = sessionCache.get(invoiceId);
+    if (session) {
+      session.state = "stopped";
+    }
+
+    res.json({
+      invoiceId: result.invoiceId,
+      referenceKeys: result.referenceKeys,
+    });
+  } catch (error: any) {
+    console.error("Failed to stop stream:", error);
+    res.status(500).json({ error: error.message || "Failed to stop stream" });
   }
-
-  const session = sessions.get(invoiceId);
-  if (!session) {
-    return res.status(404).json({ error: "Session not found" });
-  }
-
-  if (session.state === "stopped") {
-    return res.status(400).json({ error: "Session already stopped" });
-  }
-
-  session.state = "stopped";
-  session.stoppedAt = Date.now();
-
-  console.log(`[streaming/stop] Stopped session ${invoiceId}, total refs: ${session.referenceKeys.length}`);
-
-  res.json({
-    invoiceId: session.invoiceId,
-    referenceKeys: session.referenceKeys,
-  });
-});
-
-/**
- * POST /streaming/charge
- * Add a charge to a streaming session (for simulation)
- * In production, this would be handled by Beep's backend
- */
-streamingRouter.post("/charge", (req: Request, res: Response) => {
-  const { invoiceId, amount, asset = "USDC" } = req.body;
-
-  if (!invoiceId) {
-    return res.status(400).json({ error: "invoiceId required" });
-  }
-
-  if (!amount) {
-    return res.status(400).json({ error: "amount required" });
-  }
-
-  const session = sessions.get(invoiceId);
-  if (!session) {
-    return res.status(404).json({ error: "Session not found" });
-  }
-
-  if (session.state !== "active") {
-    return res.status(400).json({ error: "Can only charge active sessions" });
-  }
-
-  const referenceKey = `ref_charge_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`;
-
-  session.charges.push({
-    referenceKey,
-    amount,
-    timestamp: Date.now(),
-  });
-  session.referenceKeys.push(referenceKey);
-
-  console.log(`[streaming/charge] Added charge to ${invoiceId}: ${amount} ${asset}`);
-
-  res.json({
-    referenceKey,
-    amount,
-    asset,
-    timestamp: Date.now(),
-  });
 });
 
 /**
  * GET /streaming/status/:invoiceId
- * Get the current status of a streaming session
- *
- * Maps to Beep SDK: payments.checkPaymentStatus()
+ * Get status (combined local cache + SDK status if possible)
  */
 streamingRouter.get("/status/:invoiceId", (req: Request, res: Response) => {
   const { invoiceId } = req.params;
+  const session = sessionCache.get(invoiceId);
 
-  const session = sessions.get(invoiceId);
   if (!session) {
-    return res.status(404).json({ error: "Session not found" });
+    return res.status(404).json({ error: "Session not found in local cache" });
   }
 
-  // Calculate total charged
-  const totalCharged = session.charges.reduce(
-    (sum, charge) => sum + parseFloat(charge.amount),
-    0
-  );
-
+  // Note: For a real app, you might want to fetch latest status from Beep API if available,
+  // or rely on webhooks to keep local state in sync.
   res.json({
     invoiceId: session.invoiceId,
     state: session.state,
     merchantId: session.merchantId,
     assets: session.assets,
-    referenceKeys: session.referenceKeys,
-    charges: session.charges,
-    totalCharged: totalCharged.toFixed(6),
-    createdAt: session.createdAt,
-    startedAt: session.startedAt,
-    pausedAt: session.pausedAt,
-    stoppedAt: session.stoppedAt,
+    // We don't have charges history in local cache for this shim,
+    // but the frontend handles that mostly via simulation or result of stop()
+    charges: [],
+    referenceKeys: [],
   });
 });
 
-/**
- * GET /streaming/sessions
- * List all streaming sessions (for debugging)
- */
-streamingRouter.get("/sessions", (_req: Request, res: Response) => {
-  const allSessions = Array.from(sessions.values()).map((session) => ({
-    invoiceId: session.invoiceId,
-    state: session.state,
-    merchantId: session.merchantId,
-    assetCount: session.assets.length,
-    chargeCount: session.charges.length,
-    createdAt: session.createdAt,
-  }));
-
-  res.json(allSessions);
-});
