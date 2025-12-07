@@ -15,6 +15,8 @@ interface PaymentSession {
     paymentUrl: string;
     qrCode?: string;
     amount: string;
+    destinationAddress?: string;
+    invoiceId?: string;
 }
 
 interface SdkReceipt {
@@ -91,11 +93,22 @@ export function SdkIntegrationPanel() {
                 paymentLabel: "a402 Studio - SDK Integration",
             });
 
+            // Type the result to access all fields
+            const result = sessionResult as {
+                referenceKey: string;
+                paymentUrl?: string;
+                qrCode?: string;
+                destinationAddress?: string;
+                invoiceId?: string;
+            };
+
             const newSession: PaymentSession = {
-                referenceKey: sessionResult.referenceKey,
-                paymentUrl: sessionResult.paymentUrl,
-                qrCode: sessionResult.qrCode,
+                referenceKey: result.referenceKey,
+                paymentUrl: result.paymentUrl || "",
+                qrCode: result.qrCode,
                 amount,
+                destinationAddress: result.destinationAddress,
+                invoiceId: result.invoiceId,
             };
 
             setSession(newSession);
@@ -310,7 +323,7 @@ export function SdkIntegrationPanel() {
 
             {step === "waiting-payment" && session && (
                 <div className="space-y-4">
-                    {/* QR Code Display */}
+                    {/* QR Code or Destination Address Display */}
                     <div className="text-center">
                         {session.qrCode ? (
                             <div className="bg-white p-4 rounded-lg inline-block">
@@ -318,34 +331,81 @@ export function SdkIntegrationPanel() {
                                 <img src={session.qrCode} alt="Payment QR Code" className="w-48 h-48" />
                             </div>
                         ) : (
-                            <div className="w-48 h-48 mx-auto bg-muted rounded-lg flex items-center justify-center">
-                                <span className="text-muted-foreground text-sm">QR Loading...</span>
+                            <div className="p-4 bg-emerald-500/10 border border-emerald-500/20 rounded-lg">
+                                <p className="text-xs text-emerald-400 mb-2 font-medium">💳 Manual Payment</p>
+                                <p className="text-xs text-muted-foreground">
+                                    QR code not available. Send payment to the destination address below.
+                                </p>
                             </div>
                         )}
                     </div>
 
-                    {/* Payment URL */}
+                    {/* Destination Address (always show if available) */}
+                    {session.destinationAddress && (
+                        <div className="p-3 bg-card rounded-lg border border-border">
+                            <label className="block text-xs font-medium text-emerald-400 mb-1">
+                                Destination Address
+                            </label>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    readOnly
+                                    value={session.destinationAddress}
+                                    className="flex-1 px-2 py-1 bg-input border border-border rounded text-xs font-mono text-white truncate"
+                                />
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(session.destinationAddress || "");
+                                        addDebugLog("info", "Destination address copied to clipboard");
+                                    }}
+                                    className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded hover:bg-emerald-500/30"
+                                >
+                                    Copy
+                                </button>
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Payment Amount */}
                     <div className="p-3 bg-card rounded-lg border border-border">
                         <label className="block text-xs font-medium text-muted-foreground mb-1">
-                            Payment URL
+                            Amount to Pay
                         </label>
-                        <div className="flex items-center gap-2">
-                            <input
-                                type="text"
-                                readOnly
-                                value={session.paymentUrl}
-                                className="flex-1 px-2 py-1 bg-input border border-border rounded text-xs font-mono text-white truncate"
-                            />
-                            <button
-                                onClick={() => {
-                                    navigator.clipboard.writeText(session.paymentUrl);
-                                    addDebugLog("info", "Payment URL copied to clipboard");
-                                }}
-                                className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded hover:bg-emerald-500/30"
-                            >
-                                Copy
-                            </button>
+                        <p className="text-lg font-bold text-white">{session.amount} USDC</p>
+                    </div>
+
+                    {/* Payment URL (if available) */}
+                    {session.paymentUrl && (
+                        <div className="p-3 bg-card rounded-lg border border-border">
+                            <label className="block text-xs font-medium text-muted-foreground mb-1">
+                                Payment URL
+                            </label>
+                            <div className="flex items-center gap-2">
+                                <input
+                                    type="text"
+                                    readOnly
+                                    value={session.paymentUrl}
+                                    className="flex-1 px-2 py-1 bg-input border border-border rounded text-xs font-mono text-white truncate"
+                                />
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(session.paymentUrl);
+                                        addDebugLog("info", "Payment URL copied to clipboard");
+                                    }}
+                                    className="px-2 py-1 bg-emerald-500/20 text-emerald-400 text-xs rounded hover:bg-emerald-500/30"
+                                >
+                                    Copy
+                                </button>
+                            </div>
                         </div>
+                    )}
+
+                    {/* Reference Key */}
+                    <div className="p-3 bg-card rounded-lg border border-border">
+                        <label className="block text-xs font-medium text-muted-foreground mb-1">
+                            Reference Key
+                        </label>
+                        <p className="text-xs font-mono text-emerald-400 break-all">{session.referenceKey}</p>
                     </div>
 
                     {/* Polling Status */}
