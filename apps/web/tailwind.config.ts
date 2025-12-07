@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: ["class"],
+  darkMode: "class",
   content: [
     "./src/pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./src/components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -43,6 +43,12 @@ const config: Config = {
           DEFAULT: "hsl(var(--card))",
           foreground: "hsl(var(--card-foreground))",
         },
+        // Custom Neon Palette
+        "neon-pink": "hsl(var(--neon-pink))",
+        "neon-green": "hsl(var(--neon-green))",
+        "neon-yellow": "hsl(var(--neon-yellow))",
+        "neon-cyan": "hsl(var(--neon-cyan))",
+        "dark-gray": "hsl(var(--dark-gray))",
       },
       borderRadius: {
         lg: "var(--radius)",

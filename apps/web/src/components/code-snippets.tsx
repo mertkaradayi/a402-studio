@@ -1,7 +1,7 @@
-"use client";
-
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 
 interface CodeSnippetsProps {
     amount: string;
@@ -31,7 +31,7 @@ function PaymentButton() {
   return (
     <CheckoutWidget
       publishableKey="${publishableKey}"
-      primaryColor="#a855f7"
+      primaryColor="#FF00ED" 
       assets={[{
         name: "${description}",
         price: "${amount}",
@@ -106,22 +106,22 @@ console.log("Paid:", status.paid);`,
     };
 
     return (
-        <div className="bg-black/50 rounded-xl border border-border overflow-hidden">
+        <Card className="overflow-hidden border-border bg-card">
             {/* Header */}
-            <div className="flex items-center justify-between px-4 py-2 border-b border-border bg-black/30">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-border bg-muted/20">
                 <div className="flex items-center gap-2">
-                    <svg className="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <svg className="w-4 h-4 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
                     </svg>
-                    <span className="text-xs font-medium text-white">Integration Code</span>
+                    <span className="text-xs font-medium text-foreground">Integration Code</span>
                 </div>
-                <button
+                <Button
+                    variant="ghost"
+                    size="sm"
                     onClick={handleCopy}
                     className={cn(
-                        "flex items-center gap-1.5 px-2 py-1 rounded text-xs transition-all",
-                        copied
-                            ? "bg-green-500/20 text-green-400"
-                            : "bg-purple-500/20 text-purple-400 hover:bg-purple-500/30"
+                        "h-6 px-2 text-[10px] gap-1.5 transition-all",
+                        copied ? "text-neon-green hover:text-neon-green bg-neon-green/10" : "text-muted-foreground hover:text-foreground"
                     )}
                 >
                     {copied ? (
@@ -139,20 +139,20 @@ console.log("Paid:", status.paid);`,
                             Copy
                         </>
                     )}
-                </button>
+                </Button>
             </div>
 
             {/* Tabs */}
-            <div className="flex border-b border-border">
+            <div className="flex border-b border-border bg-muted/10">
                 {(Object.keys(codeExamples) as CodeType[]).map((type) => (
                     <button
                         key={type}
                         onClick={() => setActiveTab(type)}
                         className={cn(
-                            "flex-1 px-3 py-2 text-xs font-medium transition-all",
+                            "flex-1 px-3 py-2 text-[10px] font-medium transition-all border-b-2",
                             activeTab === type
-                                ? "bg-purple-500/20 text-purple-400 border-b-2 border-purple-500"
-                                : "text-muted-foreground hover:text-white hover:bg-white/5"
+                                ? "border-primary text-primary bg-primary/5"
+                                : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/10"
                         )}
                     >
                         {codeExamples[type].label}
@@ -161,21 +161,21 @@ console.log("Paid:", status.paid);`,
             </div>
 
             {/* Code Block */}
-            <div className="p-4 overflow-x-auto max-h-64 overflow-y-auto">
-                <pre className="text-xs font-mono text-gray-300 whitespace-pre">
+            <div className="p-0 overflow-x-auto max-h-64 overflow-y-auto bg-muted/5">
+                <pre className="p-4 text-[10px] font-mono text-muted-foreground leading-relaxed whitespace-pre selection:bg-primary/20 selection:text-primary">
                     {codeExamples[activeTab].code}
                 </pre>
             </div>
 
             {/* Footer Note */}
             {referenceKey && (
-                <div className="px-4 py-2 border-t border-border bg-purple-500/5">
+                <div className="px-3 py-2 border-t border-border bg-primary/5">
                     <p className="text-[10px] text-muted-foreground">
-                        <span className="text-purple-400 font-medium">Tip:</span> Your last payment reference:{" "}
-                        <code className="text-purple-400">{referenceKey.slice(0, 20)}...</code>
+                        <span className="text-primary font-medium">Tip:</span> Your last payment reference:{" "}
+                        <code className="text-primary bg-primary/10 px-1 py-0.5 rounded ml-1">{referenceKey.slice(0, 20)}...</code>
                     </p>
                 </div>
             )}
-        </div>
+        </Card>
     );
 }

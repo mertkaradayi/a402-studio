@@ -4,6 +4,9 @@ import { useFlowStore } from "@/stores/flow-store";
 import { WalletButton } from "./wallet-button";
 import { PaymentWidget } from "./payment-widget";
 import { ResultsPanel } from "./panels/results-panel";
+import { Button } from "@/components/ui/button";
+import { cn } from "@/lib/utils";
+import { ModeToggle } from "@/components/mode-toggle";
 
 export function FlowPlayground() {
   const { resetFlow, receipt } = useFlowStore();
@@ -11,17 +14,17 @@ export function FlowPlayground() {
   const network = process.env.NEXT_PUBLIC_SUI_NETWORK === "mainnet" ? "mainnet" : "testnet";
 
   return (
-    <div className="flex flex-col h-screen bg-gradient-to-br from-background via-background to-purple-950/10">
+    <div className="flex flex-col h-screen bg-background text-foreground transition-colors duration-300">
       {/* Header */}
-      <header className="border-b border-border bg-black/80 backdrop-blur-sm">
+      <header className="border-b border-border bg-card/80 backdrop-blur-sm sticky top-0 z-50">
         <div className="px-6 py-4 flex items-center justify-between">
           {/* Logo */}
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-pink-500 flex items-center justify-center shadow-lg shadow-purple-500/20">
-              <span className="text-white font-bold text-sm">🐝</span>
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-accent flex items-center justify-center shadow-lg shadow-primary/20">
+              <span className="text-white font-bold text-lg">🐝</span>
             </div>
             <div>
-              <h1 className="text-lg font-bold text-white">Beep Playground</h1>
+              <h1 className="text-lg font-bold tracking-tight">Beep Playground</h1>
               <p className="text-xs text-muted-foreground">
                 USDC Payments on Sui
               </p>
@@ -30,29 +33,32 @@ export function FlowPlayground() {
 
           {/* Actions */}
           <div className="flex items-center gap-3">
-            {/* Network Badge */}
-            <div className={`px-3 py-1 rounded-full text-xs font-medium ${network === "mainnet"
-                ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                : "bg-yellow-500/20 text-yellow-400 border border-yellow-500/30"
-              }`}>
-              {network === "mainnet" ? "◆ Mainnet" : "◇ Testnet"}
+            <div className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-full font-medium border bg-muted">
+              <span className={cn("w-1.5 h-1.5 rounded-full animate-pulse", network === 'mainnet' ? 'bg-neon-green' : 'bg-neon-yellow')} />
+              <span className="uppercase">{network}</span>
             </div>
 
             <div className="w-px h-6 bg-border" />
+
+            <ModeToggle />
 
             <WalletButton />
 
             {receipt && (
               <>
                 <div className="w-px h-6 bg-border" />
-                <button
+                <Button
+                  variant="outline"
+                  size="sm"
                   onClick={resetFlow}
-                  className="px-3 py-1.5 text-sm font-medium text-muted-foreground hover:text-white border border-border rounded-lg hover:border-purple-500 hover:bg-purple-500/10 transition-colors"
+                  className="hover:border-primary hover:text-primary transition-colors"
                 >
-                  Reset
-                </button>
+                  Reset Flow
+                </Button>
               </>
             )}
+
+            <div className="w-px h-6 bg-border" />
           </div>
         </div>
       </header>
@@ -60,30 +66,31 @@ export function FlowPlayground() {
       {/* Main Content - 2 Column Layout */}
       <div className="flex-1 flex overflow-hidden">
         {/* Left Column - Payment Widget (60%) */}
-        <div className="w-[60%] border-r border-border overflow-hidden bg-card/20">
+        <div className="w-full md:w-[60%] border-r border-border overflow-hidden bg-muted/20 relative">
+          <div className="absolute inset-0 bg-[radial-gradient(#36363B_1px,transparent_1px)] [background-size:16px_16px] opacity-[0.03] dark:opacity-[0.1]" />
           <PaymentWidget />
         </div>
 
         {/* Right Column - Results Panel (40%) */}
-        <div className="w-[40%] overflow-hidden">
+        <div className="hidden md:block w-[40%] overflow-hidden bg-background">
           <ResultsPanel />
         </div>
       </div>
 
       {/* Footer */}
-      <footer className="border-t border-border bg-black/50 px-6 py-2">
-        <div className="flex items-center justify-between text-xs text-muted-foreground/50">
+      <footer className="border-t border-border bg-card/50 px-6 py-2">
+        <div className="flex items-center justify-between text-xs text-muted-foreground">
           <div className="flex items-center gap-4">
-            <span>Powered by Beep 🐝</span>
+            <span>Powered by <span className="font-semibold text-foreground">Beep</span></span>
             <span>•</span>
-            <span>Sui Network ◆</span>
+            <span>Sui Network</span>
           </div>
           <div className="flex items-center gap-4">
-            <a href="https://justbeep.it" target="_blank" rel="noopener noreferrer" className="hover:text-purple-400 transition-colors">
-              Beep
+            <a href="https://justbeep.it" target="_blank" rel="noopener noreferrer" className="hover:text-primary transition-colors">
+              Docs
             </a>
-            <a href="https://sui.io" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">
-              Sui
+            <a href="https://sui.io" target="_blank" rel="noopener noreferrer" className="hover:text-accent transition-colors">
+              Explorer
             </a>
           </div>
         </div>

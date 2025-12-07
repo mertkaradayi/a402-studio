@@ -4,42 +4,90 @@
 
 @layer base {
   :root {
-    /* Custom color palette */
-    --neon-pink: 303 100% 50%;      /* #FF00ED */
-    --neon-green: 117 100% 71%;     /* #73FF6D */
-    --neon-yellow: 53 99% 50%;      /* #FEE102 */
-    --neon-cyan: 189 98% 51%;       /* #04D9FF */
-    --pure-black: 0 0% 0%;          /* #000 */
-    --dark-gray: 240 4% 22%;        /* #36363B */
-    --darker-bg: 0 0% 7%;           /* #121212 */
-    --pure-white: 0 0% 100%;        /* #FFF */
+    /* Light Mode (Clean, Developer Friendly) */
+    --background: 0 0% 100%;
+    /* #FFFFFF */
+    --foreground: 240 4% 22%;
+    /* #36363B - Dark Grey used as primary text */
 
-    /* Semantic mappings */
-    --background: 0 0% 7%;
-    --foreground: 0 0% 100%;
-    --card: 240 4% 22%;
-    --card-foreground: 0 0% 100%;
-    --popover: 240 4% 22%;
-    --popover-foreground: 0 0% 100%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 4% 22%;
+
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 4% 22%;
+
     --primary: 303 100% 50%;
-    --primary-foreground: 0 0% 0%;
-    --secondary: 240 4% 22%;
-    --secondary-foreground: 0 0% 100%;
-    --muted: 240 4% 16%;
-    --muted-foreground: 0 0% 60%;
+    /* #FF00ED - Neon Pink */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 117 100% 71%;
+    /* #73FF6D - Neon Green */
+    --secondary-foreground: 240 4% 22%;
+
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
+
     --accent: 189 98% 51%;
-    --accent-foreground: 0 0% 0%;
-    --destructive: 0 84% 60%;
-    --destructive-foreground: 0 0% 100%;
-    --border: 240 4% 26%;
-    --input: 240 4% 18%;
+    /* #04D9FF - Neon Cyan */
+    --accent-foreground: 240 4% 22%;
+
+    --destructive: 0 84.2% 60.2%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
     --ring: 303 100% 50%;
+    /* #FF00ED */
+
     --radius: 0.5rem;
 
-    /* Status colors */
-    --success: 117 100% 71%;
-    --warning: 53 99% 50%;
-    --error: 0 84% 60%;
+    /* Custom Palette Variables for direct usage */
+    --neon-pink: 303 100% 50%;
+    --neon-green: 117 100% 71%;
+    --neon-yellow: 53 99% 50%;
+    /* #FEE102 */
+    --neon-cyan: 189 98% 51%;
+    --pure-black: 0 0% 0%;
+    --dark-gray: 240 4% 22%;
+  }
+
+  .dark {
+    /* Dark Mode (High Contrast, Cyberpunk-ish) */
+    --background: 0 0% 0%;
+    /* #000000 - Pure Black */
+    --foreground: 0 0% 100%;
+    /* #FFFFFF */
+
+    --card: 240 4% 22%;
+    /* #36363B - Dark Grey */
+    --card-foreground: 0 0% 100%;
+
+    --popover: 240 4% 22%;
+    --popover-foreground: 0 0% 100%;
+
+    --primary: 303 100% 50%;
+    /* #FF00ED */
+    --primary-foreground: 0 0% 100%;
+
+    --secondary: 117 100% 71%;
+    /* #73FF6D */
+    --secondary-foreground: 240 4% 22%;
+
+    --muted: 240 4% 16%;
+    --muted-foreground: 240 5% 64.9%;
+
+    --accent: 189 98% 51%;
+    /* #04D9FF */
+    --accent-foreground: 240 4% 22%;
+
+    --destructive: 0 62.8% 30.6%;
+    --destructive-foreground: 0 0% 98%;
+
+    --border: 240 4% 22%;
+    /* Dark Grey Borders */
+    --input: 240 4% 22%;
+    --ring: 117 100% 71%;
+    /* Neon Green Ring for visibility in dark */
   }
 }
 
@@ -47,9 +95,9 @@
   * {
     @apply border-border;
   }
+
   body {
-    @apply bg-background text-foreground;
-    font-feature-settings: "rlig" 1, "calt" 1;
+    @apply bg-background text-foreground transition-colors duration-300;
   }
 }
 
@@ -57,46 +105,48 @@
   .text-neon-pink {
     color: hsl(var(--neon-pink));
   }
+
   .text-neon-green {
     color: hsl(var(--neon-green));
   }
+
   .text-neon-yellow {
     color: hsl(var(--neon-yellow));
   }
+
   .text-neon-cyan {
     color: hsl(var(--neon-cyan));
   }
+
   .bg-neon-pink {
     background-color: hsl(var(--neon-pink));
   }
+
   .bg-neon-green {
     background-color: hsl(var(--neon-green));
   }
+
   .bg-neon-yellow {
     background-color: hsl(var(--neon-yellow));
   }
+
   .bg-neon-cyan {
     background-color: hsl(var(--neon-cyan));
   }
+
   .border-neon-pink {
     border-color: hsl(var(--neon-pink));
   }
+
   .border-neon-green {
     border-color: hsl(var(--neon-green));
   }
+
   .border-neon-yellow {
     border-color: hsl(var(--neon-yellow));
   }
+
   .border-neon-cyan {
     border-color: hsl(var(--neon-cyan));
-  }
-  .glow-pink {
-    box-shadow: 0 0 20px hsl(var(--neon-pink) / 0.3);
-  }
-  .glow-green {
-    box-shadow: 0 0 20px hsl(var(--neon-green) / 0.3);
-  }
-  .glow-cyan {
-    box-shadow: 0 0 20px hsl(var(--neon-cyan) / 0.3);
   }
 }

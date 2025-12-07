@@ -1,7 +1,6 @@
-"use client";
-
 import { useState } from "react";
 import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
 
 export interface APICall {
     id: string;
@@ -24,43 +23,45 @@ export function APIInspector({ calls }: APIInspectorProps) {
 
     if (calls.length === 0) {
         return (
-            <div className="p-4 rounded-xl bg-muted/30 border border-border text-center">
-                <div className="w-10 h-10 mx-auto rounded-full bg-muted/50 flex items-center justify-center mb-2">
-                    <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                    </svg>
-                </div>
-                <p className="text-xs text-muted-foreground">No API calls yet</p>
-                <p className="text-[10px] text-muted-foreground/50 mt-1">
-                    Start a payment to see Beep API responses
-                </p>
-            </div>
+            <Card className="bg-muted/10 border-dashed">
+                <CardContent className="p-4 text-center">
+                    <div className="w-10 h-10 mx-auto rounded-full bg-muted flex items-center justify-center mb-2">
+                        <svg className="w-5 h-5 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                        </svg>
+                    </div>
+                    <p className="text-xs text-muted-foreground">No API calls yet</p>
+                    <p className="text-[10px] text-muted-foreground/50 mt-1">
+                        Start a payment to see Beep API responses
+                    </p>
+                </CardContent>
+            </Card>
         );
     }
 
     const selectedCall = calls.find((c) => c.id === expandedId) || calls[0];
 
     return (
-        <div className="bg-black/50 rounded-xl border border-border overflow-hidden">
+        <Card className="overflow-hidden border-border bg-card">
             {/* Timeline */}
-            <div className="p-3 border-b border-border bg-black/30">
-                <div className="flex items-center gap-1 overflow-x-auto pb-1">
+            <div className="p-2 border-b border-border bg-muted/20">
+                <div className="flex items-center gap-1 overflow-x-auto pb-1 scrollbar-thin scrollbar-thumb-muted-foreground/20">
                     {calls.map((call, i) => (
                         <button
                             key={call.id}
                             onClick={() => setExpandedId(call.id)}
                             className={cn(
-                                "flex items-center gap-1.5 px-2 py-1 rounded text-xs whitespace-nowrap transition-all",
+                                "flex items-center gap-1.5 px-2 py-1 rounded text-[10px] whitespace-nowrap transition-all",
                                 (expandedId === call.id || (!expandedId && i === 0))
-                                    ? "bg-purple-500/20 text-purple-400"
-                                    : "text-muted-foreground hover:text-white hover:bg-white/5"
+                                    ? "bg-primary/10 text-primary font-medium"
+                                    : "text-muted-foreground hover:text-foreground hover:bg-muted/20"
                             )}
                         >
                             <span className={cn(
-                                "w-2 h-2 rounded-full",
-                                call.status === "pending" && "bg-yellow-400 animate-pulse",
-                                call.status === "success" && "bg-green-400",
-                                call.status === "error" && "bg-red-400"
+                                "w-1.5 h-1.5 rounded-full",
+                                call.status === "pending" && "bg-neon-yellow animate-pulse",
+                                call.status === "success" && "bg-neon-green",
+                                call.status === "error" && "bg-destructive"
                             )} />
                             <span className="font-mono">{call.endpoint.split("/").pop()}</span>
                         </button>
@@ -72,17 +73,17 @@ export function APIInspector({ calls }: APIInspectorProps) {
             {selectedCall && (
                 <>
                     {/* Call Info */}
-                    <div className="px-3 py-2 border-b border-border flex items-center justify-between">
+                    <div className="px-3 py-2 border-b border-border flex items-center justify-between bg-card">
                         <div className="flex items-center gap-2">
                             <span className={cn(
-                                "px-1.5 py-0.5 rounded text-[10px] font-bold",
+                                "px-1.5 py-0.5 rounded text-[9px] font-bold uppercase",
                                 selectedCall.method === "POST"
-                                    ? "bg-blue-500/20 text-blue-400"
-                                    : "bg-green-500/20 text-green-400"
+                                    ? "bg-blue-500/10 text-blue-500"
+                                    : "bg-green-500/10 text-green-500"
                             )}>
                                 {selectedCall.method}
                             </span>
-                            <span className="text-xs font-mono text-muted-foreground">
+                            <span className="text-[10px] font-mono text-muted-foreground truncate max-w-[150px]" title={selectedCall.endpoint}>
                                 {selectedCall.endpoint}
                             </span>
                         </div>
@@ -91,25 +92,25 @@ export function APIInspector({ calls }: APIInspectorProps) {
                                 <span>{selectedCall.duration}ms</span>
                             )}
                             <span className={cn(
-                                "px-1.5 py-0.5 rounded",
-                                selectedCall.status === "success" && "bg-green-500/20 text-green-400",
-                                selectedCall.status === "error" && "bg-red-500/20 text-red-400",
-                                selectedCall.status === "pending" && "bg-yellow-500/20 text-yellow-400"
+                                "px-1.5 py-0.5 rounded font-mono",
+                                selectedCall.status === "success" && "bg-neon-green/10 text-neon-green",
+                                selectedCall.status === "error" && "bg-destructive/10 text-destructive",
+                                selectedCall.status === "pending" && "bg-neon-yellow/10 text-neon-yellow"
                             )}>
-                                {selectedCall.status === "success" ? "200" : selectedCall.status === "error" ? "Error" : "..."}
+                                {selectedCall.status === "success" ? "200" : selectedCall.status === "error" ? "ERR" : "..."}
                             </span>
                         </div>
                     </div>
 
                     {/* Tabs */}
-                    <div className="flex border-b border-border">
+                    <div className="flex border-b border-border bg-muted/10">
                         <button
                             onClick={() => setActiveTab("request")}
                             className={cn(
-                                "flex-1 px-3 py-1.5 text-xs font-medium transition-all",
+                                "flex-1 px-3 py-1.5 text-[10px] font-medium transition-all border-b-2",
                                 activeTab === "request"
-                                    ? "bg-purple-500/10 text-purple-400 border-b-2 border-purple-500"
-                                    : "text-muted-foreground hover:text-white"
+                                    ? "border-primary text-primary bg-primary/5"
+                                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/10"
                             )}
                         >
                             Request
@@ -117,10 +118,10 @@ export function APIInspector({ calls }: APIInspectorProps) {
                         <button
                             onClick={() => setActiveTab("response")}
                             className={cn(
-                                "flex-1 px-3 py-1.5 text-xs font-medium transition-all",
+                                "flex-1 px-3 py-1.5 text-[10px] font-medium transition-all border-b-2",
                                 activeTab === "response"
-                                    ? "bg-purple-500/10 text-purple-400 border-b-2 border-purple-500"
-                                    : "text-muted-foreground hover:text-white"
+                                    ? "border-primary text-primary bg-primary/5"
+                                    : "border-transparent text-muted-foreground hover:text-foreground hover:bg-muted/10"
                             )}
                         >
                             Response
@@ -128,8 +129,8 @@ export function APIInspector({ calls }: APIInspectorProps) {
                     </div>
 
                     {/* JSON Content */}
-                    <div className="p-3 max-h-48 overflow-auto">
-                        <pre className="text-xs font-mono text-gray-300 whitespace-pre-wrap">
+                    <div className="p-0 max-h-48 overflow-auto bg-muted/5">
+                        <pre className="p-3 text-[10px] font-mono text-muted-foreground whitespace-pre-wrap leading-relaxed">
                             {activeTab === "request"
                                 ? JSON.stringify(selectedCall.request || {}, null, 2)
                                 : JSON.stringify(selectedCall.response || {}, null, 2)
@@ -138,6 +139,6 @@ export function APIInspector({ calls }: APIInspectorProps) {
                     </div>
                 </>
             )}
-        </div>
+        </Card>
     );
 }

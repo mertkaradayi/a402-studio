@@ -3,6 +3,9 @@
 import { useState, useCallback } from "react";
 import { BeepPublicClient } from "@beep-it/sdk-core";
 import { cn } from "@/lib/utils";
+import { Card, CardContent } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 const BEEP_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY || "";
 
@@ -54,35 +57,31 @@ export function ReferenceKeyLookup() {
     };
 
     return (
-        <div className="bg-black/50 rounded-xl border border-border overflow-hidden">
+        <Card className="overflow-hidden border-border bg-card">
             {/* Header */}
-            <div className="px-4 py-3 border-b border-border bg-black/30 flex items-center gap-2">
-                <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="px-3 py-2 border-b border-border bg-muted/20 flex items-center gap-2">
+                <svg className="w-4 h-4 text-accent" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
                 </svg>
-                <span className="text-xs font-medium text-white">Reference Key Lookup</span>
+                <span className="text-xs font-medium text-foreground">Reference Key Lookup</span>
             </div>
 
             {/* Input */}
-            <div className="p-3">
+            <div className="p-3 space-y-3">
                 <div className="flex gap-2">
-                    <input
+                    <Input
                         type="text"
                         value={referenceKey}
                         onChange={(e) => setReferenceKey(e.target.value)}
                         onKeyDown={handleKeyDown}
                         placeholder="Paste a referenceKey..."
-                        className="flex-1 px-3 py-2 bg-black/50 border border-border rounded-lg text-xs font-mono text-white placeholder:text-muted-foreground/50 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                        className="flex-1 h-8 text-xs font-mono"
                     />
-                    <button
+                    <Button
                         onClick={handleLookup}
                         disabled={isLoading || !referenceKey.trim()}
-                        className={cn(
-                            "px-4 py-2 rounded-lg text-xs font-medium transition-all",
-                            isLoading || !referenceKey.trim()
-                                ? "bg-muted text-muted-foreground cursor-not-allowed"
-                                : "bg-blue-500/20 text-blue-400 hover:bg-blue-500/30"
-                        )}
+                        size="sm"
+                        className="h-8 text-xs bg-accent text-accent-foreground hover:bg-accent/90"
                     >
                         {isLoading ? (
                             <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -92,43 +91,43 @@ export function ReferenceKeyLookup() {
                         ) : (
                             "Check"
                         )}
-                    </button>
+                    </Button>
                 </div>
 
                 {/* Result */}
                 {result && (
                     <div className={cn(
-                        "mt-3 p-3 rounded-lg text-xs",
+                        "p-2.5 rounded-lg text-xs border animate-in slide-in-from-top-2 duration-200",
                         result.error
-                            ? "bg-red-500/10 border border-red-500/30"
+                            ? "bg-destructive/10 border-destructive/20 text-destructive"
                             : result.paid
-                                ? "bg-green-500/10 border border-green-500/30"
-                                : "bg-yellow-500/10 border border-yellow-500/30"
+                                ? "bg-neon-green/10 border-neon-green/20 text-neon-green"
+                                : "bg-neon-yellow/10 border-neon-yellow/20 text-neon-yellow"
                     )}>
                         <div className="flex items-center gap-2">
                             {result.error ? (
                                 <>
-                                    <svg className="w-4 h-4 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                                     </svg>
-                                    <span className="text-red-400">{result.error}</span>
+                                    <span>{result.error}</span>
                                 </>
                             ) : result.paid ? (
                                 <>
-                                    <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
                                     </svg>
-                                    <span className="text-green-400 font-medium">Paid</span>
+                                    <span className="font-medium">Paid</span>
                                     {result.status && (
                                         <span className="text-muted-foreground">• Status: {result.status}</span>
                                     )}
                                 </>
                             ) : (
                                 <>
-                                    <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
                                     </svg>
-                                    <span className="text-yellow-400 font-medium">Not Paid</span>
+                                    <span className="font-medium">Not Paid</span>
                                     {result.status && (
                                         <span className="text-muted-foreground">• Status: {result.status}</span>
                                     )}
@@ -141,10 +140,10 @@ export function ReferenceKeyLookup() {
 
             {/* Tip */}
             <div className="px-3 pb-3">
-                <p className="text-[10px] text-muted-foreground/50">
+                <p className="text-[10px] text-muted-foreground/60">
                     💡 Paste any referenceKey from a Beep payment session to check its status
                 </p>
             </div>
-        </div>
+        </Card>
     );
 }

@@ -4,6 +4,9 @@ import { useState, useCallback } from "react";
 import { CheckoutWidget } from "@beep-it/checkout-widget";
 import { useFlowStore } from "@/stores/flow-store";
 import { cn } from "@/lib/utils";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 
 const BEEP_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY || "";
 
@@ -121,17 +124,19 @@ export function PaymentWidget() {
     if (!BEEP_PUBLISHABLE_KEY) {
         return (
             <div className="h-full flex items-center justify-center p-8">
-                <div className="max-w-md text-center">
-                    <div className="w-16 h-16 mx-auto rounded-2xl bg-red-500/20 flex items-center justify-center mb-4">
-                        <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                        </svg>
-                    </div>
-                    <h2 className="text-lg font-semibold text-white mb-2">Configuration Required</h2>
-                    <p className="text-sm text-muted-foreground mb-4">
-                        Set <code className="text-purple-400 bg-purple-500/10 px-1.5 py-0.5 rounded">NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY</code> in your environment.
-                    </p>
-                </div>
+                <Card className="max-w-md text-center border-destructive/50 bg-destructive/10">
+                    <CardHeader>
+                        <div className="w-16 h-16 mx-auto rounded-2xl bg-destructive/20 flex items-center justify-center mb-4">
+                            <svg className="w-8 h-8 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                        </div>
+                        <CardTitle className="text-foreground">Configuration Required</CardTitle>
+                        <CardDescription>
+                            Set <code className="text-primary bg-muted px-1.5 py-0.5 rounded">NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY</code> in your environment.
+                        </CardDescription>
+                    </CardHeader>
+                </Card>
             </div>
         );
     }
@@ -139,26 +144,26 @@ export function PaymentWidget() {
     return (
         <div className="h-full flex flex-col">
             {/* Header */}
-            <div className="p-6 border-b border-border">
+            <div className="p-6 border-b border-border bg-card/40 backdrop-blur-sm">
                 <div className="flex items-center justify-between">
                     <div className="flex items-center gap-3">
-                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-purple-500/30 to-pink-500/30 flex items-center justify-center">
-                            <svg className="w-6 h-6 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-primary/20 to-accent/20 flex items-center justify-center border border-primary/20">
+                            <svg className="w-6 h-6 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18M7 15h1m4 0h1m-7 4h12a3 3 0 003-3V8a3 3 0 00-3-3H6a3 3 0 00-3 3v8a3 3 0 003 3z" />
                             </svg>
                         </div>
                         <div>
-                            <h1 className="text-xl font-bold text-white">Beep Payments</h1>
+                            <h1 className="text-xl font-bold tracking-tight">Beep Payments</h1>
                             <p className="text-sm text-muted-foreground">Pay with USDC on Sui</p>
                         </div>
                     </div>
 
                     {/* Network Badge */}
                     <div className={cn(
-                        "px-3 py-1.5 rounded-full text-xs font-medium",
+                        "px-3 py-1.5 rounded-full text-xs font-medium border",
                         network === "sui-mainnet"
-                            ? "bg-green-500/20 text-green-400"
-                            : "bg-yellow-500/20 text-yellow-400"
+                            ? "bg-neon-green/10 text-neon-green border-neon-green/30"
+                            : "bg-neon-yellow/10 text-neon-yellow border-neon-yellow/30"
                     )}>
                         {network === "sui-mainnet" ? "Mainnet" : "Testnet"}
                     </div>
@@ -166,50 +171,51 @@ export function PaymentWidget() {
             </div>
 
             {/* Main Content */}
-            <div className="flex-1 overflow-y-auto p-6">
+            <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-muted scrollbar-track-transparent">
                 {/* Configuration Step */}
                 {step === "config" && (
                     <div className="max-w-md mx-auto space-y-6">
                         {/* Amount Input */}
-                        <div>
-                            <label className="block text-sm font-medium text-white mb-2">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                 Amount (USDC)
                             </label>
                             <div className="relative">
-                                <input
+                                <Input
                                     type="text"
                                     value={amount}
                                     onChange={(e) => setAmount(e.target.value)}
-                                    className="w-full px-4 py-3 bg-black/50 border border-border rounded-xl text-lg text-white font-mono focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                    className="h-14 text-lg font-mono pl-4 pr-16"
                                     placeholder="0.01"
                                 />
-                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium">
+                                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-muted-foreground font-medium text-sm">
                                     USDC
                                 </span>
                             </div>
                         </div>
 
                         {/* Description Input */}
-                        <div>
-                            <label className="block text-sm font-medium text-white mb-2">
+                        <div className="space-y-2">
+                            <label className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
                                 Description
                             </label>
-                            <input
+                            <Input
                                 type="text"
                                 value={description}
                                 onChange={(e) => setDescription(e.target.value)}
-                                className="w-full px-4 py-3 bg-black/50 border border-border rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent"
+                                className="h-12"
                                 placeholder="What's this payment for?"
                             />
                         </div>
 
                         {/* Start Button */}
-                        <button
+                        <Button
                             onClick={handleStartPayment}
-                            className="w-full px-6 py-4 bg-gradient-to-r from-purple-500 to-pink-500 text-white font-bold text-lg rounded-xl hover:opacity-90 transition-all shadow-lg shadow-purple-500/20"
+                            size="lg"
+                            className="w-full text-lg font-bold shadow-lg shadow-primary/20"
                         >
                             Start Payment
-                        </button>
+                        </Button>
 
                         {/* Info */}
                         <p className="text-xs text-muted-foreground text-center">
@@ -220,35 +226,39 @@ export function PaymentWidget() {
 
                 {/* Payment Step - Show CheckoutWidget */}
                 {step === "paying" && (
-                    <div className="space-y-4">
+                    <div className="max-w-md mx-auto space-y-6">
                         {/* Widget Container */}
-                        <div className="bg-white rounded-2xl overflow-hidden shadow-xl">
-                            <CheckoutWidget
-                                publishableKey={BEEP_PUBLISHABLE_KEY}
-                                primaryColor="#a855f7"
-                                labels={{
-                                    scanQr: "Scan QR or connect wallet",
-                                    paymentLabel: description,
-                                }}
-                                assets={[
-                                    {
-                                        name: description,
-                                        price: amount,
-                                        quantity: 1,
-                                    },
-                                ]}
-                                onPaymentSuccess={handlePaymentSuccess}
-                                onPaymentError={handlePaymentError}
-                            />
-                        </div>
+                        <Card className="overflow-hidden shadow-xl border-border bg-white">
+                            {/* Beep Widget needs white background usually or configured colors, let's keep it clean */}
+                            <div className="p-1 bg-white">
+                                <CheckoutWidget
+                                    publishableKey={BEEP_PUBLISHABLE_KEY}
+                                    primaryColor="#FF00ED" // Neon Pink
+                                    labels={{
+                                        scanQr: "Scan QR or connect wallet",
+                                        paymentLabel: description,
+                                    }}
+                                    assets={[
+                                        {
+                                            name: description,
+                                            price: amount,
+                                            quantity: 1,
+                                        },
+                                    ]}
+                                    onPaymentSuccess={handlePaymentSuccess}
+                                    onPaymentError={handlePaymentError}
+                                />
+                            </div>
+                        </Card>
 
                         {/* Cancel Button */}
-                        <button
+                        <Button
+                            variant="ghost"
                             onClick={handleReset}
-                            className="w-full px-4 py-2 border border-border text-muted-foreground rounded-xl hover:bg-muted/10 transition-colors"
+                            className="w-full"
                         >
                             Cancel
-                        </button>
+                        </Button>
                     </div>
                 )}
 
@@ -256,67 +266,73 @@ export function PaymentWidget() {
                 {step === "complete" && paymentResult && (
                     <div className="max-w-md mx-auto space-y-6 text-center">
                         {/* Success Animation */}
-                        <div className="w-24 h-24 mx-auto bg-gradient-to-br from-purple-500/30 to-pink-500/30 rounded-full flex items-center justify-center">
-                            <div className="w-16 h-16 bg-purple-500/20 rounded-full flex items-center justify-center">
-                                <svg className="w-10 h-10 text-purple-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        <div className="w-24 h-24 mx-auto bg-gradient-to-br from-primary/20 to-accent/20 rounded-full flex items-center justify-center animate-in zoom-in duration-300">
+                            <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center border border-primary/30">
+                                <svg className="w-8 h-8 text-primary" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 13l4 4L19 7" />
                                 </svg>
                             </div>
                         </div>
 
                         <div>
-                            <h2 className="text-2xl font-bold text-white mb-2">Payment Complete!</h2>
+                            <h2 className="text-2xl font-bold mb-2">Payment Complete!</h2>
                             <p className="text-muted-foreground">
                                 Your payment has been verified by Beep
                             </p>
                         </div>
 
                         {/* Payment Summary */}
-                        <div className="p-4 bg-purple-500/10 border border-purple-500/30 rounded-xl text-left">
-                            <div className="space-y-2 text-sm">
-                                <div className="flex justify-between">
+                        <Card className="bg-muted/30 border-primary/20">
+                            <CardContent className="p-4 space-y-3 text-sm pt-4">
+                                <div className="flex justify-between items-center">
                                     <span className="text-muted-foreground">Amount</span>
-                                    <span className="font-mono text-green-400">{paymentResult.totalAmount} USDC</span>
+                                    <span className="font-mono text-neon-green font-medium">{paymentResult.totalAmount} USDC</span>
                                 </div>
-                                <div className="flex justify-between">
+                                <div className="flex justify-between items-center">
                                     <span className="text-muted-foreground">Reference</span>
-                                    <span className="font-mono text-purple-400 truncate max-w-[180px]" title={paymentResult.referenceKey}>
+                                    <span className="font-mono text-primary truncate max-w-[180px]" title={paymentResult.referenceKey}>
                                         {paymentResult.referenceKey?.slice(0, 16)}...
                                     </span>
                                 </div>
-                                <div className="flex justify-between">
+                                <div className="flex justify-between items-center">
                                     <span className="text-muted-foreground">Status</span>
-                                    <span className="text-purple-400 font-medium">{paymentResult.status}</span>
+                                    <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-primary/10 text-primary uppercase">
+                                        {paymentResult.status}
+                                    </span>
                                 </div>
-                            </div>
-                        </div>
+                            </CardContent>
+                        </Card>
 
                         {/* New Payment Button */}
-                        <button
+                        <Button
                             onClick={handleReset}
-                            className="w-full px-6 py-3 bg-purple-500/20 text-purple-400 font-medium rounded-xl border border-purple-500/30 hover:bg-purple-500/30 transition-colors"
+                            variant="secondary"
+                            className="w-full"
                         >
                             Make Another Payment
-                        </button>
+                        </Button>
                     </div>
                 )}
 
                 {/* Error Step */}
                 {step === "error" && (
-                    <div className="max-w-md mx-auto space-y-4 text-center">
-                        <div className="w-16 h-16 mx-auto bg-red-500/20 rounded-full flex items-center justify-center">
-                            <svg className="w-8 h-8 text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <div className="max-w-md mx-auto space-y-6 text-center">
+                        <div className="w-16 h-16 mx-auto bg-destructive/10 rounded-full flex items-center justify-center">
+                            <svg className="w-8 h-8 text-destructive" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
                             </svg>
                         </div>
-                        <h2 className="text-xl font-bold text-white">Payment Failed</h2>
-                        <p className="text-sm text-red-400">{error}</p>
-                        <button
+                        <div>
+                            <h2 className="text-xl font-bold">Payment Failed</h2>
+                            <p className="text-sm text-destructive mt-2 bg-destructive/5 p-2 rounded border border-destructive/20">{error}</p>
+                        </div>
+                        <Button
                             onClick={handleReset}
-                            className="w-full px-4 py-2 border border-border text-muted-foreground rounded-xl hover:bg-muted/10 transition-colors"
+                            variant="outline"
+                            className="w-full"
                         >
                             Try Again
-                        </button>
+                        </Button>
                     </div>
                 )}
             </div>
