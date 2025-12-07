@@ -49,6 +49,11 @@ export async function verifyReceiptViaBeepAPI(
     receipt: A402Receipt
 ): Promise<SignatureVerificationResult> {
     try {
+        // Get publishable key from environment
+        const publishableKey = typeof window !== 'undefined'
+            ? process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY
+            : undefined;
+
         // Use local proxy to avoid CORS
         const response = await fetch(`${LOCAL_API_URL}/a402/verify-beep`, {
             method: "POST",
@@ -68,6 +73,8 @@ export async function verifyReceiptViaBeepAPI(
                     signature: receipt.signature,
                     issuedAt: receipt.issuedAt,
                 },
+                // Include publishable key for Beep API authentication
+                publishableKey,
             }),
         });
 

@@ -144,9 +144,10 @@ a402Router.post("/simulate-payment", async (req: Request, res: Response) => {
 /**
  * POST /a402/verify-beep
  * Proxy to Beep's /a402/verify endpoint to avoid CORS issues
+ * Uses publishable key for authentication
  */
 a402Router.post("/verify-beep", async (req: Request, res: Response) => {
-  const { receipt } = req.body;
+  const { receipt, publishableKey } = req.body;
 
   if (!receipt) {
     return res.status(400).json({
@@ -155,12 +156,23 @@ a402Router.post("/verify-beep", async (req: Request, res: Response) => {
     });
   }
 
+  // Use provided key or fallback to environment variable
+  const beepKey = publishableKey || process.env.BEEP_PUBLISHABLE_KEY;
+
   try {
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "x-beep-client": "beep-sdk",
+    };
+
+    // Add authorization if we have a key
+    if (beepKey) {
+      headers["Authorization"] = `Bearer ${beepKey}`;
+    }
+
     const response = await fetch(`${BEEP_API_URL}/a402/verify`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify({ receipt }),
     });
 
