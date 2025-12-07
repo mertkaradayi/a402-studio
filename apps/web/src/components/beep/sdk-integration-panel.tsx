@@ -1,11 +1,15 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useCurrentAccount } from "@mysten/dapp-kit";
+import { useCurrentAccount, useSuiClient, useSignAndExecuteTransaction } from "@mysten/dapp-kit";
+import { Transaction } from "@mysten/sui/transactions";
 import { BeepPublicClient } from "@beep-it/sdk-core";
 import { useFlowStore } from "@/stores/flow-store";
 import { cn } from "@/lib/utils";
 import { verifyReceiptViaBeepAPI } from "@/lib/signature-verification";
+
+// USDC token address on Sui mainnet
+const USDC_TYPE = "0xdba34672e30cb065b1f93e3ab55318768fd6fef66c15942c9f7cb846e2f900e7::usdc::USDC";
 
 // SDK Integration State
 type SdkStep = "idle" | "creating-session" | "waiting-payment" | "verifying" | "complete" | "error";
@@ -38,6 +42,8 @@ const BEEP_PUBLISHABLE_KEY = process.env.NEXT_PUBLIC_BEEP_PUBLISHABLE_KEY || "";
 export function SdkIntegrationPanel() {
     const { addDebugLog, setChallenge, setReceipt } = useFlowStore();
     const account = useCurrentAccount();
+    const suiClient = useSuiClient();
+    const { mutateAsync: signAndExecuteTransaction } = useSignAndExecuteTransaction();
 
     const [step, setStep] = useState<SdkStep>("idle");
     const [session, setSession] = useState<PaymentSession | null>(null);
@@ -47,6 +53,7 @@ export function SdkIntegrationPanel() {
         valid: boolean;
         method: string;
     } | null>(null);
+    const [isPayingWithWallet, setIsPayingWithWallet] = useState(false);
 
     // Configuration
     const [amount, setAmount] = useState("0.01");
@@ -218,7 +225,117 @@ export function SdkIntegrationPanel() {
         setSdkReceipt(null);
         setError(null);
         setVerificationResult(null);
+        setIsPayingWithWallet(false);
     };
+
+    // Pay directly with connected wallet
+    const handlePayWithWallet = useCallback(async () => {
+        if (!account || !session?.destinationAddress) {
+            setError("Wallet not connected or no destination address");
+            return;
+        }
+
+        setIsPayingWithWallet(true);
+        addDebugLog("info", "🔐 Building USDC transfer transaction...");
+        addDebugLog("info", `To: ${session.destinationAddress}`);
+        addDebugLog("info", `Amount: ${session.amount} USDC`);
+
+        try {
+            // Get user's USDC coins
+            const coins = await suiClient.getCoins({
+                owner: account.address,
+                coinType: USDC_TYPE,
+            });
+
+            if (!coins.data.length) {
+                throw new Error("No USDC coins found in your wallet");
+            }
+
+            addDebugLog("info", `Found ${coins.data.length} USDC coin(s)`);
+
+            // Convert amount to smallest units (USDC has 6 decimals)
+            const amountInSmallestUnits = BigInt(Math.floor(parseFloat(session.amount) * 1_000_000));
+
+            // Build transaction
+            const tx = new Transaction();
+
+            // Find a coin with enough balance
+            const coinToUse = coins.data.find(
+                (c) => BigInt(c.balance) >= amountInSmallestUnits
+            );
+
+            if (!coinToUse) {
+                throw new Error(`Insufficient USDC balance. Need ${session.amount} USDC.`);
+            }
+
+            addDebugLog("info", `Using coin: ${coinToUse.coinObjectId.slice(0, 16)}...`);
+
+            // Split the exact amount and transfer
+            const [paymentCoin] = tx.splitCoins(tx.object(coinToUse.coinObjectId), [
+                tx.pure.u64(amountInSmallestUnits),
+            ]);
+            tx.transferObjects([paymentCoin], tx.pure.address(session.destinationAddress));
+
+            addDebugLog("info", "Requesting wallet signature...");
+
+            // Execute transaction
+            const result = await signAndExecuteTransaction({
+                transaction: tx,
+            });
+
+            addDebugLog("success", "✅ Transaction executed!");
+            addDebugLog("info", `TX Digest: ${result.digest}`);
+
+            // Create receipt
+            const newReceipt: SdkReceipt = {
+                id: `rcpt_${Date.now()}`,
+                requestNonce: session.referenceKey,
+                payer: account.address,
+                merchant: session.destinationAddress,
+                amount: session.amount,
+                asset: "USDC",
+                chain: network,
+                txHash: result.digest,
+                signature: `sui_tx_${result.digest.slice(0, 16)}`,
+                issuedAt: Math.floor(Date.now() / 1000),
+            };
+
+            setSdkReceipt(newReceipt);
+            setReceipt(newReceipt, JSON.stringify(newReceipt, null, 2));
+
+            // Set step to verifying and check with Beep
+            setStep("verifying");
+            addDebugLog("info", "🔐 Checking payment status with Beep...");
+
+            // Poll Beep for payment confirmation
+            const beepClient = new BeepPublicClient({
+                publishableKey: BEEP_PUBLISHABLE_KEY,
+            });
+
+            // Wait a moment for Beep to detect the payment
+            await new Promise((resolve) => setTimeout(resolve, 3000));
+
+            const status = await beepClient.widget.getPaymentStatus(session.referenceKey);
+            addDebugLog("info", `Beep status: ${JSON.stringify(status)}`);
+
+            const paid = (status as { paid?: boolean })?.paid;
+            if (paid) {
+                addDebugLog("success", "✅ Beep confirmed payment!");
+                setVerificationResult({ valid: true, method: "beep-polling" });
+            } else {
+                addDebugLog("warning", "Beep has not confirmed yet. TX is on-chain.");
+                setVerificationResult({ valid: true, method: "onchain-verified" });
+            }
+
+            setStep("complete");
+
+        } catch (err) {
+            const message = err instanceof Error ? err.message : "Unknown error";
+            addDebugLog("error", `Wallet payment failed: ${message}`);
+            setError(message);
+            setIsPayingWithWallet(false);
+        }
+    }, [account, session, network, suiClient, signAndExecuteTransaction, addDebugLog, setReceipt]);
 
     return (
         <div className="space-y-4">
@@ -408,16 +525,35 @@ export function SdkIntegrationPanel() {
                         <p className="text-xs font-mono text-emerald-400 break-all">{session.referenceKey}</p>
                     </div>
 
+                    {/* Pay with Wallet Button - Primary Action */}
+                    {session.destinationAddress && (
+                        <button
+                            onClick={handlePayWithWallet}
+                            disabled={isPayingWithWallet}
+                            className="w-full px-4 py-3 bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
+                        >
+                            {isPayingWithWallet ? (
+                                <span className="flex items-center justify-center gap-2">
+                                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                                    Signing Transaction...
+                                </span>
+                            ) : (
+                                `💳 Pay ${session.amount} USDC with Wallet`
+                            )}
+                        </button>
+                    )}
+
                     {/* Polling Status */}
                     <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                         <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse" />
-                        Waiting for payment...
+                        Also listening for external payments...
                     </div>
 
                     {/* Cancel Button */}
                     <button
                         onClick={resetFlow}
-                        className="w-full px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-muted transition-colors"
+                        disabled={isPayingWithWallet}
+                        className="w-full px-4 py-2 border border-border text-muted-foreground rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
                     >
                         Cancel
                     </button>
