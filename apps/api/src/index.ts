@@ -8,18 +8,25 @@ const PORT = process.env.PORT || 3001;
 
 // CORS configuration
 const allowedOrigins = process.env.CORS_ORIGINS
-  ? process.env.CORS_ORIGINS.split(",")
+  ? process.env.CORS_ORIGINS.split(",").map(o => o.trim())
   : ["http://localhost:3000"];
+
+console.log("[CORS] Allowed origins:", allowedOrigins);
 
 app.use(
   cors({
     origin: (origin, callback) => {
-      // Allow requests with no origin (e.g., mobile apps, curl)
-      if (!origin) return callback(null, true);
+      // Allow requests with no origin (e.g., mobile apps, curl, server-to-server)
+      if (!origin) {
+        return callback(null, true);
+      }
+      // Allow if origin matches or wildcard is set
       if (allowedOrigins.includes(origin) || allowedOrigins.includes("*")) {
         return callback(null, true);
       }
-      callback(new Error(`Origin ${origin} not allowed by CORS`));
+      // Reject by passing false (not throwing error)
+      console.log(`[CORS] Blocked origin: ${origin}`);
+      return callback(null, false);
     },
     credentials: true,
   })
