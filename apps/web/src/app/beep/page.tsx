@@ -84,6 +84,13 @@ export default function BeepStoryPage() {
                   Talk to us
                   <span aria-hidden>→</span>
                 </Link>
+                <Link
+                  href="/beep/pitch"
+                  className="inline-flex items-center gap-2 rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-muted-foreground transition hover:-translate-y-0.5 hover:border-neon-pink hover:text-neon-pink"
+                >
+                  Pitch snapshot
+                  <span aria-hidden>↗</span>
+                </Link>
               </div>
               <div className="flex flex-wrap gap-4 text-xs uppercase tracking-[0.2em] text-muted-foreground">
                 <span className="rounded-full border border-white/10 px-3 py-1">

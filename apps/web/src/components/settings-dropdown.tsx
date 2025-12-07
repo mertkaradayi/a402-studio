@@ -169,8 +169,9 @@ export function SettingsDropdown() {
                                         {hasKey
                                             ? looksLikeKey
                                                 ? "Key looks valid. Copy is available - keep it safe and rotate in env for production."
-                                                : "This doesn't look like a full Beep publishable key (expected beep_pk_*)."}
-                                            : "Add your Beep publishable key to run live flows and copy it on demand."}
+                                                : "This doesn't look like a full Beep publishable key (expected beep_pk_*)."
+                                            : "Add your Beep publishable key to run live flows and copy it on demand."
+                                        }
                                     </p>
                                     <a
                                         href="https://app.justbeep.it"
@@ -178,7 +179,7 @@ export function SettingsDropdown() {
                                         rel="noopener noreferrer"
                                         className="text-primary hover:underline"
                                     >
-                                        Get key ->
+                                        {"Get key ->"}
                                     </a>
                                 </div>
                             </div>
